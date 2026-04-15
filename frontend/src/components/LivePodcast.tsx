@@ -2,12 +2,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Pause,
   Play,
-  SkipBack,
-  SkipForward,
   ChevronDown,
-  Share2,
   ListMusic,
-  Volume2,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULT_TURNS, startLiveDebate } from "@/lib/api";
@@ -243,9 +239,16 @@ export default function LivePodcast({ headline, onBack }: LivePodcastProps) {
     }
   }, [turns]);
 
+  useEffect(() => {
+    if (turns.length > 0) {
+      setShowTranscript(true);
+    }
+  }, [turns.length]);
+
   const s1 = SPEAKERS.agent_1;
   const s2 = SPEAKERS.agent_2;
   const currentSpeaker = activeSpeaker ? SPEAKERS[activeSpeaker] : null;
+  const latestTurn = turns[turns.length - 1] ?? null;
   const progressWidth = `${Math.min(
     100,
     status === "completed" ? 100 : Math.max(5, (turns.length / DEFAULT_TURNS) * 100)
@@ -277,9 +280,9 @@ export default function LivePodcast({ headline, onBack }: LivePodcastProps) {
             {conversationId ? `Debatte ${conversationId.slice(0, 8)}` : "Lanz & Precht"}
           </p>
         </div>
-        <button className="p-2 -mr-2 text-muted-foreground hover:text-foreground transition-colors">
-          <Share2 className="w-5 h-5" />
-        </button>
+        <div className="min-w-10 text-right text-[10px] font-medium uppercase tracking-[0.18em] text-primary/80">
+          {turns.length}/{DEFAULT_TURNS}
+        </div>
       </div>
 
       {/* Album art / cover area */}
@@ -418,15 +421,27 @@ export default function LivePodcast({ headline, onBack }: LivePodcastProps) {
             </span>
           </div>
         </div>
+
+        {latestTurn && (
+          <motion.div
+            key={latestTurn.turn_index}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full max-w-[320px] mt-4 rounded-xl border border-border bg-card/80 px-4 py-3"
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/80">
+              Jetzt zu horen · {SPEAKERS[latestTurn.speaker].shortName}
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-card-foreground line-clamp-4">
+              {latestTurn.text}
+            </p>
+          </motion.div>
+        )}
       </div>
 
-      {/* Playback controls — Spotify style */}
+      {/* Playback controls */}
       <div className="px-8 pb-4">
-        <div className="flex items-center justify-center gap-6">
-          <button className="text-muted-foreground hover:text-foreground transition-colors">
-            <SkipBack className="w-6 h-6" fill="currentColor" />
-          </button>
-
+        <div className="flex items-center justify-center">
           <button
             onClick={handlePlayPause}
             className="w-14 h-14 rounded-full bg-foreground text-background flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
@@ -438,25 +453,22 @@ export default function LivePodcast({ headline, onBack }: LivePodcastProps) {
               <Pause className="w-6 h-6" fill="currentColor" />
             )}
           </button>
-
-          <button className="text-muted-foreground hover:text-foreground transition-colors">
-            <SkipForward className="w-6 h-6" fill="currentColor" />
-          </button>
         </div>
 
-        {/* Bottom row: volume + transcript toggle */}
-        <div className="flex items-center justify-between mt-4">
-          <button className="text-muted-foreground hover:text-foreground transition-colors p-2">
-            <Volume2 className="w-4 h-4" />
-          </button>
+        {/* Bottom row: transcript toggle */}
+        <div className="flex items-center justify-center mt-4">
           <button
             onClick={() => setShowTranscript(!showTranscript)}
             className={cn(
-              "text-muted-foreground hover:text-foreground transition-colors p-2",
-              showTranscript && "text-primary"
+              "inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm transition-colors",
+              showTranscript
+                ? "border-primary/40 bg-primary/10 text-primary"
+                : "text-muted-foreground hover:text-foreground"
             )}
+            aria-expanded={showTranscript}
           >
             <ListMusic className="w-4 h-4" />
+            <span>Transkript</span>
           </button>
         </div>
       </div>

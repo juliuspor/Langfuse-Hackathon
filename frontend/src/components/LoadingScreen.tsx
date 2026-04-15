@@ -50,20 +50,27 @@ export default function LoadingScreen({ topic }: LoadingScreenProps) {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
+        className="max-w-[320px]"
       >
-        <h2 className="font-display text-lg font-bold text-foreground mb-2">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/80 mb-3">
+          Live-Briefing startet
+        </p>
+        <h2 className="font-display text-2xl font-bold text-foreground mb-3">
           Diskussion wird vorbereitet
         </h2>
-        <p className="text-sm text-muted-foreground max-w-[280px] leading-relaxed mb-6">
+        <p className="text-base text-secondary-foreground leading-relaxed mb-2">
           {topic}
+        </p>
+        <p className="text-sm text-muted-foreground leading-relaxed mb-6">
+          Lanz bekommt die erste These, Precht den ersten Widerspruch.
         </p>
       </motion.div>
 
       {/* Animated steps */}
       <div className="space-y-3 w-full max-w-[260px]">
-        <LoadingStep label="Thema analysieren" delay={0} />
-        <LoadingStep label="Standpunkte vorbereiten" delay={1.5} />
-        <LoadingStep label="Podcast generieren" delay={3} />
+        <LoadingStep label="Thema wird eingeordnet" delay={0} />
+        <LoadingStep label="Erste Reibung entsteht" delay={1.5} />
+        <LoadingStep label="Audio und Transcript kommen gleich" delay={3} />
       </div>
 
       {/* Brand footer */}
@@ -83,8 +90,8 @@ function LoadingStep({ label, delay }: { label: string; delay: number }) {
   return (
     <motion.div
       className="flex items-center gap-3"
-      initial={{ opacity: 0.3 }}
-      animate={{ opacity: [0.3, 1, 0.3] }}
+      initial={{ opacity: 0.45 }}
+      animate={{ opacity: [0.45, 1, 0.45] }}
       transition={{ duration: 2, repeat: Infinity, delay }}
     >
       <motion.div
@@ -98,7 +105,7 @@ function LoadingStep({ label, delay }: { label: string; delay: number }) {
           transition={{ duration: 2, repeat: Infinity, delay }}
         />
       </motion.div>
-      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="text-sm text-secondary-foreground">{label}</span>
     </motion.div>
   );
 }

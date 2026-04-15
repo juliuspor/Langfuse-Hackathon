@@ -1,5 +1,4 @@
 import { motion } from "framer-motion";
-import { Search, Mic } from "lucide-react";
 import { type NewsHeadline } from "@/lib/debateData";
 import { fetchHeadlines } from "@/lib/api";
 import { useCallback, useEffect, useState } from "react";
@@ -61,12 +60,15 @@ export default function TopicPicker({ onSelectTopic }: TopicPickerProps) {
           <p className="text-[11px] text-muted-foreground hidden sm:block">{formatDate()}</p>
         </div>
 
-        {/* Search bar */}
+        {/* Briefing hint */}
         <div className="px-4 pb-3">
-          <div className="flex items-center gap-2 bg-secondary rounded-full px-4 py-2.5">
-            <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-            <span className="text-sm text-muted-foreground flex-1">Themen, Quellen durchsuchen</span>
-            <Mic className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+          <div className="rounded-2xl border border-border bg-secondary/70 px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/80">
+              Heute im Briefing
+            </p>
+            <p className="mt-1 text-sm text-secondary-foreground">
+              Ein Thema auswahlen, 4 kurze Turns starten, direkt in die Debatte rein.
+            </p>
           </div>
         </div>
 
@@ -189,9 +191,9 @@ export default function TopicPicker({ onSelectTopic }: TopicPickerProps) {
                       </div>
                     </div>
                   ))}
-                  <button className="w-full text-center py-2 text-[11px] text-primary font-medium hover:bg-secondary/40 transition-colors">
-                    Alle Meldungen anzeigen ›
-                  </button>
+                  <p className="px-4 py-2 text-center text-[11px] text-muted-foreground">
+                    Weitere Stimmen fur den Kontext
+                  </p>
                 </div>
               )}
             </div>
