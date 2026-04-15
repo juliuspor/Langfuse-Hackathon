@@ -1,0 +1,140 @@
+from __future__ import annotations
+
+import logging
+import time
+import uuid
+from typing import Any
+
+from flask import Flask, g, jsonify, render_template, request
+from werkzeug.exceptions import HTTPException
+
+from models.storage import Storage
+from routes.debate import debate_bp
+from services.debate_orchestrator import DebateOrchestrator
+from services.elevenlabs_client import ElevenLabsClient
+from services.news_context import NewsContextService
+from utils.config import Settings, load_settings
+from utils.errors import AppError, ConfigurationError
+
+
+def create_app(test_config: dict[str, Any] | None = None) -> Flask:
+    test_config = test_config or {}
+    settings = test_config.get("SETTINGS") or load_settings()
+
+    _configure_logging(settings.log_level)
+
+    app = Flask(__name__)
+    app.config.update(test_config)
+
+    storage: Storage = test_config.get("STORAGE") or Storage(settings.database_path)
+    storage.init_db()
+
+    elevenlabs_client = test_config.get("ELEVENLABS_CLIENT") or ElevenLabsClient(
+        settings
+    )
+    news_context_service = (
+        test_config.get("NEWS_CONTEXT_SERVICE") or NewsContextService()
+    )
+    debate_orchestrator = test_config.get("DEBATE_ORCHESTRATOR") or DebateOrchestrator(
+        settings=settings,
+        storage=storage,
+        elevenlabs_client=elevenlabs_client,
+        news_context_service=news_context_service,
+    )
+
+    app.extensions["settings"] = settings
+    app.extensions["storage"] = storage
+    app.extensions["debate_orchestrator"] = debate_orchestrator
+
+    @app.before_request
+    def attach_request_metadata() -> None:
+        g.request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+        g.request_started_at = time.perf_counter()
+
+    @app.after_request
+    def inject_request_id(response):
+        response.headers["X-Request-ID"] = g.request_id
+        duration_ms = (time.perf_counter() - g.request_started_at) * 1000
+        logging.info(
+            "request_id=%s method=%s path=%s status=%s duration_ms=%.2f",
+            g.request_id,
+            request.method,
+            request.path,
+            response.status_code,
+            duration_ms,
+        )
+        return response
+
+    app.register_blueprint(debate_bp)
+
+    @app.get("/")
+    def index() -> str:
+        return render_template("index.html")
+
+    @app.get("/health")
+    def health() -> Any:
+        return jsonify({"status": "ok"})
+
+    @app.errorhandler(AppError)
+    def handle_app_error(error: AppError):
+        payload = {
+            "error": {
+                "code": error.code,
+                "message": error.message,
+                "request_id": getattr(g, "request_id", None),
+            }
+        }
+        if error.details is not None:
+            payload["error"]["details"] = error.details
+        return jsonify(payload), error.status_code
+
+    @app.errorhandler(ConfigurationError)
+    def handle_config_error(error: ConfigurationError):
+        payload = {
+            "error": {
+                "code": error.code,
+                "message": error.message,
+                "request_id": getattr(g, "request_id", None),
+            }
+        }
+        return jsonify(payload), error.status_code
+
+    @app.errorhandler(HTTPException)
+    def handle_http_exception(error: HTTPException):
+        payload = {
+            "error": {
+                "code": "http_error",
+                "message": error.description,
+                "request_id": getattr(g, "request_id", None),
+            }
+        }
+        return jsonify(payload), error.code
+
+    @app.errorhandler(Exception)
+    def handle_unexpected_error(error: Exception):
+        logging.exception(
+            "request_id=%s unexpected_error=%s",
+            getattr(g, "request_id", None),
+            str(error),
+        )
+        payload = {
+            "error": {
+                "code": "internal_error",
+                "message": "Unexpected internal server error",
+                "request_id": getattr(g, "request_id", None),
+            }
+        }
+        return jsonify(payload), 500
+
+    return app
+
+
+def _configure_logging(log_level: str) -> None:
+    level = getattr(logging, log_level.upper(), logging.INFO)
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s %(levelname)s %(message)s",
+    )
+
+
+app = create_app()
