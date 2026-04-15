@@ -52,41 +52,50 @@ class ElevenLabsClient:
             )
 
         started = time.perf_counter()
-        signed_url = self._get_signed_conversation_url(agent_id=agent_id)
         response_timeout_seconds = self.settings.request_timeout_seconds
         initiation_message = self._build_conversation_initiation_message(
             language=language
         )
+        last_error: Exception | None = None
 
-        try:
-            text = self._chat_turn_via_websocket(
-                signed_url=signed_url,
-                initiation_message=initiation_message,
-                user_message=latest_user_message,
-                response_timeout_seconds=response_timeout_seconds,
-            )
-        except TimeoutError as exc:
+        for _attempt in range(2):
+            try:
+                signed_url = self._get_signed_conversation_url(agent_id=agent_id)
+                text = self._chat_turn_via_websocket(
+                    signed_url=signed_url,
+                    initiation_message=initiation_message,
+                    user_message=latest_user_message,
+                    response_timeout_seconds=response_timeout_seconds,
+                )
+                latency_ms = (time.perf_counter() - started) * 1000
+
+                return {
+                    "text": text,
+                    "latency_ms": latency_ms,
+                    "analysis": None,
+                    "raw": None,
+                    "provider": {
+                        "transport": "conversation_websocket",
+                        "model_id": None,
+                        "request_id": None,
+                        "character_count": None,
+                        "character_cost": None,
+                    },
+                }
+            except TimeoutError as exc:
+                last_error = exc
+            except websocket.WebSocketException as exc:
+                last_error = exc
+
+        if isinstance(last_error, TimeoutError):
             raise ExternalServiceError(
                 "ElevenLabs conversation websocket timed out"
-            ) from exc
-        except websocket.WebSocketException as exc:
-            raise ExternalServiceError("ElevenLabs conversation websocket failed") from exc
-
-        latency_ms = (time.perf_counter() - started) * 1000
-
-        return {
-            "text": text,
-            "latency_ms": latency_ms,
-            "analysis": None,
-            "raw": None,
-            "provider": {
-                "transport": "conversation_websocket",
-                "model_id": None,
-                "request_id": None,
-                "character_count": None,
-                "character_cost": None,
-            },
-        }
+            ) from last_error
+        if isinstance(last_error, websocket.WebSocketException):
+            raise ExternalServiceError(
+                "ElevenLabs conversation websocket failed"
+            ) from last_error
+        raise ExternalServiceError("ElevenLabs conversation websocket failed")
 
     def get_agent_voice_id(self, *, agent_id: str) -> str | None:
         if agent_id in self._agent_voice_cache:

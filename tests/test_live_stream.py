@@ -75,7 +75,7 @@ def test_live_stream_emits_text_turn_before_audio(app_client) -> None:
     assert events[-1]["data"]["turns"][0]["referee"]["badge"] == "Gruen"
 
 
-def test_live_stream_falls_back_when_generation_fails(
+def test_live_stream_emits_error_when_generation_fails(
     app_client, storage, fake_elevenlabs_client
 ) -> None:
     fake_elevenlabs_client.fail_simulate_on_turn = 1
@@ -90,19 +90,16 @@ def test_live_stream_falls_back_when_generation_fails(
     assert [event["event"] for event in events] == [
         "connected",
         "conversation",
-        "turn",
-        "referee",
-        "turn",
-        "referee",
-        "completed",
+        "error",
     ]
+    assert events[-1]["data"]["code"] == "external_service_error"
     conversation_id = events[1]["data"]["conversation_id"]
     stored = storage.get_conversation(conversation_id)
     assert stored is not None
-    assert stored["status"] == "completed_with_warnings"
-    assert len(stored["turns"]) == 2
-    assert stored["meta"]["total_turns"] == 2
-    assert "simulate-conversation failed" in stored["meta"]["warnings"][0]
+    assert stored["status"] == "failed"
+    assert len(stored["turns"]) == 0
+    assert stored["meta"]["total_turns"] == 0
+    assert stored["meta"]["error"] == "synthetic generation failure"
     assert fake_elevenlabs_client.simulate_calls == ["agent_1"]
 
 
