@@ -67,7 +67,7 @@ export default function TopicPicker({ onSelectTopic }: TopicPickerProps) {
               Heute im Podcast
             </p>
             <p className="mt-1 text-sm text-secondary-foreground">
-              Ein Thema auswahlen, 12 kurze Turns starten, direkt in die Debatte rein.
+              Ein Thema auswahlen, direkt in die Debatte rein.
             </p>
           </div>
         </div>

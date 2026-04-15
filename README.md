@@ -47,7 +47,6 @@ just enough theatrical friction to make the topic stick.
 
 - Starts a debate for a topic with strict turn alternation (`agent_1` -> `agent_2` -> ...).
 - Supports German only (`language=de`).
-- Defaults to 12 turns for a fuller live exchange.
 - Streams each generated text turn to the browser before slower audio work.
 - Optionally lets a "Fakten-Schiri" judge each turn with a public source-grounded verdict card.
 - Serves a React/Vite news-feed and podcast-style UI from Flask.
@@ -64,7 +63,7 @@ just enough theatrical friction to make the topic stick.
 1. Start Flask with `venv/bin/python -m flask --app app:create_app run`.
 2. Open `http://127.0.0.1:5000/`.
 3. Pick one headline from the news feed.
-4. Generate a 12-turn debate.
+4. Generate a debate.
 5. Watch the turns stream in order, with the Fakten-Schiri card updating right
    after each new turn while the podcast-style UI stays responsive.
 6. If audio is enabled, play the generated turns; if audio fails, the transcript
@@ -246,7 +245,7 @@ curl -s -X POST http://127.0.0.1:5000/api/debate/start \
   -H "Content-Type: application/json" \
   -d '{
     "topic": "Soll Deutschland ein Tempolimit einfuehren?",
-    "turns": 12,
+    "turns": 4,
     "language": "de",
     "include_audio": true,
     "article_source": "Nachrichtenquelle",
@@ -307,10 +306,8 @@ event immediately after the matching `turn`. When audio is enabled, a later
 `audio` event updates the same turn with its MP3 URL after TTS finishes.
 
 ```bash
-curl -N "http://127.0.0.1:5000/api/debate/live?topic=Soll%20Deutschland%20ein%20Tempolimit%20einfuehren%3F&turns=12&language=de&include_audio=true"
+curl -N "http://127.0.0.1:5000/api/debate/live?topic=Soll%20Deutschland%20ein%20Tempolimit%20einfuehren%3F&turns=4&language=de&include_audio=true"
 ```
-
-When `turns` is omitted, debate endpoints default to 12 turns.
 
 Event order without audio:
 

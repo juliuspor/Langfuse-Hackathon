@@ -3,7 +3,7 @@
 React/Vite frontend for the Flask app.
 
 The app loads headlines from Flask's `/api/news/headlines` endpoint and starts
-12-turn debates through `/api/debate/live`. Provider secrets stay in the backend
+debates through `/api/debate/live`. Provider secrets stay in the backend
 environment.
 
 The product is in German because otherwise the joke would not work lol.
