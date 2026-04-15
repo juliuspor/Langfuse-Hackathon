@@ -25,6 +25,7 @@ export interface LiveDebateCallbacks {
     news_context?: unknown;
   }) => void;
   onTurn?: (turn: DebateTurn) => void;
+  onAudio?: (turn: DebateTurn) => void;
   onCompleted?: (data: DebateSummary) => void;
   onError?: (error: string) => void;
 }
@@ -105,6 +106,10 @@ export function startLiveDebate(
 
   es.addEventListener("turn", (e) => {
     callbacks.onTurn?.(normalizeTurn(JSON.parse(e.data)));
+  });
+
+  es.addEventListener("audio", (e) => {
+    callbacks.onAudio?.(normalizeTurn(JSON.parse(e.data)));
   });
 
   es.addEventListener("completed", (e) => {

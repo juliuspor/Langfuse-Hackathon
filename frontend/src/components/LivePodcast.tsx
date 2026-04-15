@@ -54,11 +54,13 @@ export default function LivePodcast({ headline, onBack }: LivePodcastProps) {
   const cancelRef = useRef<() => void>();
   const audioQueueRef = useRef<DebateTurn[]>([]);
   const currentAudioTurnRef = useRef<DebateTurn | null>(null);
+  const playedAudioTurnsRef = useRef<Set<number>>(new Set());
   const isPausedRef = useRef(false);
 
   const resetAudio = useCallback(() => {
     audioQueueRef.current = [];
     currentAudioTurnRef.current = null;
+    playedAudioTurnsRef.current.clear();
     isPausedRef.current = false;
     setCurrentAudioTurn(null);
     setIsPaused(false);
@@ -80,7 +82,11 @@ export default function LivePodcast({ headline, onBack }: LivePodcastProps) {
       return;
     }
 
-    const nextTurn = audioQueueRef.current.shift();
+    let nextTurn = audioQueueRef.current.shift();
+    while (nextTurn && playedAudioTurnsRef.current.has(nextTurn.turn_index)) {
+      nextTurn = audioQueueRef.current.shift();
+    }
+
     const audio = audioRef.current;
     if (!nextTurn?.audio_url || !audio) {
       return;
@@ -105,7 +111,33 @@ export default function LivePodcast({ headline, onBack }: LivePodcastProps) {
     }
   }, []);
 
+  const enqueueAudio = useCallback(
+    (turn: DebateTurn) => {
+      if (!turn.audio_url || playedAudioTurnsRef.current.has(turn.turn_index)) {
+        return;
+      }
+      if (currentAudioTurnRef.current?.turn_index === turn.turn_index) {
+        return;
+      }
+      if (
+        audioQueueRef.current.some(
+          (queued) => queued.turn_index === turn.turn_index
+        )
+      ) {
+        return;
+      }
+
+      audioQueueRef.current.push(turn);
+      void playQueuedAudio();
+    },
+    [playQueuedAudio]
+  );
+
   const handleAudioEnded = useCallback(() => {
+    const endedTurn = currentAudioTurnRef.current;
+    if (endedTurn) {
+      playedAudioTurnsRef.current.add(endedTurn.turn_index);
+    }
     currentAudioTurnRef.current = null;
     setCurrentAudioTurn(null);
     if (audioQueueRef.current.length === 0) {
@@ -162,15 +194,29 @@ export default function LivePodcast({ headline, onBack }: LivePodcastProps) {
         setTurns((prev) => [...prev, turn]);
         setActiveSpeaker(turn.speaker);
         if (turn.audio_url) {
-          audioQueueRef.current.push(turn);
-          void playQueuedAudio();
+          enqueueAudio(turn);
         }
+      },
+      onAudio: (turn) => {
+        setTurns((prev) => {
+          const hasTurn = prev.some(
+            (item) => item.turn_index === turn.turn_index
+          );
+          if (!hasTurn) {
+            return [...prev, turn].sort((a, b) => a.turn_index - b.turn_index);
+          }
+          return prev.map((item) =>
+            item.turn_index === turn.turn_index ? { ...item, ...turn } : item
+          );
+        });
+        enqueueAudio(turn);
       },
       onCompleted: (debate) => {
         setStatus("completed");
         setWarnings(debate.meta?.warnings ?? []);
         if (debate.turns?.length) {
           setTurns(debate.turns);
+          debate.turns.forEach(enqueueAudio);
         }
         if (!currentAudioTurnRef.current && audioQueueRef.current.length === 0) {
           setActiveSpeaker(null);
@@ -184,7 +230,7 @@ export default function LivePodcast({ headline, onBack }: LivePodcastProps) {
     });
 
     cancelRef.current = cancel;
-  }, [headline, playQueuedAudio, resetAudio]);
+  }, [enqueueAudio, headline, resetAudio]);
 
   useEffect(() => {
     startDebate();

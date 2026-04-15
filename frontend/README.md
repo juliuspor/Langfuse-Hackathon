@@ -9,7 +9,8 @@ environment.
 The frontend is staged like a morning podcast player, not a generic dashboard:
 choose one headline, start the live debate, and watch the two personas take
 turns while audio plays when available. The app expects the Flask backend to
-provide headlines and stream debate turns.
+provide headlines, stream text turns, and send per-turn audio updates when MP3s
+are ready.
 
 ## Commands
 

@@ -20,6 +20,7 @@ class FakeElevenLabsClient:
         self.agent_voice_ids: dict[str, str | None] = {}
         self.get_agent_voice_calls: list[str] = []
         self.tts_calls: list[str] = []
+        self.fail_simulate_on_turn: int | None = None
         self.fail_tts_on_turn: int | None = None
 
     def simulate_turn(
@@ -34,6 +35,8 @@ class FakeElevenLabsClient:
             }
         )
         turn_no = len(self.simulate_calls)
+        if self.fail_simulate_on_turn == turn_no:
+            raise ExternalServiceError("synthetic generation failure")
         if turn_no <= len(self.turn_texts):
             text = self.turn_texts[turn_no - 1]
         else:

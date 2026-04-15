@@ -40,6 +40,59 @@ def test_live_stream_defaults_to_four_turns(app_client) -> None:
     assert len(events[-1]["data"]["turns"]) == 4
 
 
+def test_live_stream_emits_text_turn_before_audio(app_client) -> None:
+    response = app_client.get(
+        "/api/debate/live?topic=Energiepolitik&turns=2&language=de&include_audio=true",
+        buffered=True,
+    )
+
+    assert response.status_code == 200
+    events = _parse_sse(response.get_data(as_text=True))
+    assert [event["event"] for event in events] == [
+        "connected",
+        "conversation",
+        "turn",
+        "audio",
+        "turn",
+        "audio",
+        "completed",
+    ]
+    assert events[2]["data"]["turn_index"] == 1
+    assert events[2]["data"]["audio_url"] is None
+    assert events[3]["data"]["turn_index"] == 1
+    assert events[3]["data"]["audio_url"].endswith("/audio/1.mp3")
+    assert events[-1]["data"]["turns"][0]["audio_url"].endswith("/audio/1.mp3")
+
+
+def test_live_stream_falls_back_when_generation_fails(
+    app_client, storage, fake_elevenlabs_client
+) -> None:
+    fake_elevenlabs_client.fail_simulate_on_turn = 1
+
+    response = app_client.get(
+        "/api/debate/live?topic=Energiepolitik&turns=2&language=de&include_audio=false",
+        buffered=True,
+    )
+
+    assert response.status_code == 200
+    events = _parse_sse(response.get_data(as_text=True))
+    assert [event["event"] for event in events] == [
+        "connected",
+        "conversation",
+        "turn",
+        "turn",
+        "completed",
+    ]
+    conversation_id = events[1]["data"]["conversation_id"]
+    stored = storage.get_conversation(conversation_id)
+    assert stored is not None
+    assert stored["status"] == "completed_with_warnings"
+    assert len(stored["turns"]) == 2
+    assert stored["meta"]["total_turns"] == 2
+    assert "simulate-conversation failed" in stored["meta"]["warnings"][0]
+    assert fake_elevenlabs_client.simulate_calls == ["agent_1"]
+
+
 def test_live_stream_rejects_invalid_boolean(app_client) -> None:
     response = app_client.get(
         "/api/debate/live?topic=Energiepolitik&turns=3&include_audio=maybe"

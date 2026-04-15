@@ -29,7 +29,7 @@ just enough theatrical friction to make the topic stick.
 
 - Starts a debate for a topic with strict turn alternation (`agent_1` -> `agent_2` -> ...).
 - Supports German only (`language=de`).
-- Streams each completed turn to the browser as a live event.
+- Streams each generated text turn to the browser before slower audio work.
 - Serves a React/Vite news-feed and podcast-style UI from Flask.
 - Loads German headlines from GNews through the Flask backend.
 - Plays each generated MP3 turn in sequence in the web UI when audio is enabled.
@@ -38,6 +38,8 @@ just enough theatrical friction to make the topic stick.
 - Serves stored debate data and per-turn audio via API.
 - Uses selected article context to ground the generated debate.
 - Captures ElevenLabs response metadata (request IDs, character usage when returned by headers).
+- Falls back to short local debate text if ElevenLabs conversation simulation is
+  unavailable, so TTS and the transcript can still keep the demo moving.
 
 ## Demo Flow
 
@@ -219,7 +221,9 @@ Sample response:
 
 ### Live debate stream
 
-The browser UI uses this endpoint to receive turns as soon as they are generated:
+The browser UI uses this endpoint to receive transcript turns as soon as they
+are generated. When audio is enabled, a later `audio` event updates the same turn
+with its MP3 URL after TTS finishes.
 
 ```bash
 curl -N "http://127.0.0.1:5000/api/debate/live?topic=Soll%20Deutschland%20ein%20Tempolimit%20einfuehren%3F&turns=4&language=de&include_audio=true"
@@ -227,10 +231,16 @@ curl -N "http://127.0.0.1:5000/api/debate/live?topic=Soll%20Deutschland%20ein%20
 
 When `turns` is omitted, debate endpoints default to 4 turns.
 
-Event order:
+Event order without audio:
 
 ```text
 connected -> conversation -> turn -> turn -> ... -> completed
+```
+
+Event order with audio:
+
+```text
+connected -> conversation -> turn -> audio -> turn -> audio -> ... -> completed
 ```
 
 The debate endpoints also accept optional article context fields:

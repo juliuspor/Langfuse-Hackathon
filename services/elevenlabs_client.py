@@ -57,12 +57,13 @@ class ElevenLabsClient:
         }
 
         started = time.perf_counter()
+        read_timeout = min(self.settings.request_timeout_seconds, 12.0)
         try:
             response = self.session.post(
                 url,
                 headers=self.default_headers,
                 json=payload,
-                timeout=(5, self.settings.request_timeout_seconds),
+                timeout=(5, read_timeout),
             )
         except requests.Timeout as exc:
             raise ExternalServiceError(

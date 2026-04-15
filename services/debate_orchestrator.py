@@ -108,111 +108,178 @@ class DebateOrchestrator:
         }
 
         transcript: list[dict[str, str]] = []
-        for turn_index in range(1, turns + 1):
-            speaker = self._speaker_for_turn(turn_index)
-            profile = self._profile_for_speaker(speaker)
-            guidance = self._build_guidance_message(
-                topic=topic,
-                news_context=news_context["context"],
-                transcript=transcript,
-                language=language,
-                is_final_turn=turn_index == turns,
-            )
+        text_fallback_reason: str | None = None
+        try:
+            for turn_index in range(1, turns + 1):
+                speaker = self._speaker_for_turn(turn_index)
+                profile = self._profile_for_speaker(speaker)
+                guidance = self._build_guidance_message(
+                    topic=topic,
+                    news_context=news_context["context"],
+                    transcript=transcript,
+                    language=language,
+                    is_final_turn=turn_index == turns,
+                )
 
-            partial_history = self._build_partial_history(
-                transcript=transcript, speaker=speaker
-            )
-            partial_history.append(
-                {
-                    "role": "user",
-                    "message": guidance,
-                    "time_in_call_secs": turn_index,
-                }
-            )
+                partial_history = self._build_partial_history(
+                    transcript=transcript, speaker=speaker
+                )
+                partial_history.append(
+                    {
+                        "role": "user",
+                        "message": guidance,
+                        "time_in_call_secs": turn_index,
+                    }
+                )
 
-            generation = self.elevenlabs_client.simulate_turn(
-                agent_id=profile.agent_id,
-                partial_history=partial_history,
-                language=language,
-            )
-            turn_text = generation["text"]
-
-            audio_path: str | None = None
-            turn_meta: dict[str, Any] = {
-                "generation_latency_ms": generation["latency_ms"],
-                "generation_provider": generation.get("provider"),
-            }
-            provider_character_count_total += int(
-                generation.get("provider", {}).get("character_count") or 0
-            )
-            provider_character_cost_total += float(
-                generation.get("provider", {}).get("character_cost") or 0
-            )
-
-            if include_audio:
-                voice_id = profile.voice_id
-                if voice_id is None:
+                if text_fallback_reason is None:
                     try:
-                        voice_id = self.elevenlabs_client.get_agent_voice_id(
-                            agent_id=profile.agent_id
-                        )
-                    except ExternalServiceError as exc:
-                        warnings.append(
-                            f"Could not load voice id for {speaker}: {str(exc)}"
-                        )
-
-                if voice_id is None:
-                    warnings.append(
-                        f"Missing voice id for {speaker}; skipped audio for turn {turn_index}"
-                    )
-                else:
-                    try:
-                        tts = self.elevenlabs_client.synthesize_speech(
-                            voice_id=voice_id,
-                            text=turn_text,
+                        generation = self.elevenlabs_client.simulate_turn(
+                            agent_id=profile.agent_id,
+                            partial_history=partial_history,
                             language=language,
                         )
-                        audio_path = self._persist_audio(
-                            conversation_id=conversation_id,
-                            turn_index=turn_index,
-                            audio_bytes=tts["audio_bytes"],
-                        )
-                        turn_meta["tts_latency_ms"] = tts["latency_ms"]
-                        turn_meta["tts_provider"] = tts.get("provider")
-                        provider_character_count_total += int(
-                            tts.get("provider", {}).get("character_count") or 0
-                        )
-                        provider_character_cost_total += float(
-                            tts.get("provider", {}).get("character_cost") or 0
-                        )
                     except ExternalServiceError as exc:
+                        text_fallback_reason = str(exc)
                         warnings.append(
-                            f"Audio generation failed for turn {turn_index}: {str(exc)}"
+                            "ElevenLabs simulate-conversation failed; "
+                            "used local fallback debate text."
                         )
+                        generation = self._fallback_generation(
+                            topic=topic,
+                            news_context=news_context["context"],
+                            transcript=transcript,
+                            speaker=speaker,
+                            turn_index=turn_index,
+                            turns=turns,
+                            reason=text_fallback_reason,
+                        )
+                else:
+                    generation = self._fallback_generation(
+                        topic=topic,
+                        news_context=news_context["context"],
+                        transcript=transcript,
+                        speaker=speaker,
+                        turn_index=turn_index,
+                        turns=turns,
+                        reason=text_fallback_reason,
+                    )
+                turn_text = generation["text"]
 
-            self.storage.add_turn(
-                conversation_id=conversation_id,
-                turn_index=turn_index,
-                speaker=speaker,
-                text=turn_text,
-                audio_path=audio_path,
-                latency_ms=generation["latency_ms"],
-                request_id=request_id,
-                raw_meta=turn_meta,
-            )
-            transcript.append({"speaker": speaker, "text": turn_text})
-            yield {
-                "event": "turn",
-                "data": self._to_api_turn(
+                audio_path: str | None = None
+                turn_meta: dict[str, Any] = {
+                    "generation_latency_ms": generation["latency_ms"],
+                    "generation_provider": generation.get("provider"),
+                }
+                provider_character_count_total += int(
+                    generation.get("provider", {}).get("character_count") or 0
+                )
+                provider_character_cost_total += float(
+                    generation.get("provider", {}).get("character_cost") or 0
+                )
+
+                self.storage.add_turn(
                     conversation_id=conversation_id,
-                    turn={
-                        "turn_index": turn_index,
-                        "speaker": speaker,
-                        "text": turn_text,
-                        "audio_path": audio_path,
+                    turn_index=turn_index,
+                    speaker=speaker,
+                    text=turn_text,
+                    audio_path=audio_path,
+                    latency_ms=generation["latency_ms"],
+                    request_id=request_id,
+                    raw_meta=turn_meta,
+                )
+                transcript.append({"speaker": speaker, "text": turn_text})
+                yield {
+                    "event": "turn",
+                    "data": self._to_api_turn(
+                        conversation_id=conversation_id,
+                        turn={
+                            "turn_index": turn_index,
+                            "speaker": speaker,
+                            "text": turn_text,
+                            "audio_path": audio_path,
+                        },
+                    ),
+                }
+
+                if include_audio:
+                    voice_id = profile.voice_id
+                    if voice_id is None:
+                        try:
+                            voice_id = self.elevenlabs_client.get_agent_voice_id(
+                                agent_id=profile.agent_id
+                            )
+                        except ExternalServiceError as exc:
+                            warnings.append(
+                                f"Could not load voice id for {speaker}: {str(exc)}"
+                            )
+
+                    if voice_id is None:
+                        warnings.append(
+                            f"Missing voice id for {speaker}; skipped audio for turn {turn_index}"
+                        )
+                    else:
+                        try:
+                            tts = self.elevenlabs_client.synthesize_speech(
+                                voice_id=voice_id,
+                                text=turn_text,
+                                language=language,
+                            )
+                            audio_path = self._persist_audio(
+                                conversation_id=conversation_id,
+                                turn_index=turn_index,
+                                audio_bytes=tts["audio_bytes"],
+                            )
+                            turn_meta["tts_latency_ms"] = tts["latency_ms"]
+                            turn_meta["tts_provider"] = tts.get("provider")
+                            provider_character_count_total += int(
+                                tts.get("provider", {}).get("character_count") or 0
+                            )
+                            provider_character_cost_total += float(
+                                tts.get("provider", {}).get("character_cost") or 0
+                            )
+                            self.storage.add_turn(
+                                conversation_id=conversation_id,
+                                turn_index=turn_index,
+                                speaker=speaker,
+                                text=turn_text,
+                                audio_path=audio_path,
+                                latency_ms=generation["latency_ms"],
+                                request_id=request_id,
+                                raw_meta=turn_meta,
+                            )
+                            yield {
+                                "event": "audio",
+                                "data": self._to_api_turn(
+                                    conversation_id=conversation_id,
+                                    turn={
+                                        "turn_index": turn_index,
+                                        "speaker": speaker,
+                                        "text": turn_text,
+                                        "audio_path": audio_path,
+                                    },
+                                ),
+                            }
+                        except ExternalServiceError as exc:
+                            warnings.append(
+                                f"Audio generation failed for turn {turn_index}: {str(exc)}"
+                            )
+        except ExternalServiceError as exc:
+            meta.update(
+                {
+                    "status": "failed",
+                    "total_turns": len(transcript),
+                    "error": str(exc),
+                    "provider_usage": {
+                        "character_count_total": provider_character_count_total,
+                        "character_cost_total": round(provider_character_cost_total, 6),
                     },
-                ),
-            }
+                }
+            )
+            self.storage.update_conversation(
+                conversation_id=conversation_id, status="failed", meta=meta
+            )
+            raise
 
         status = "completed_with_warnings" if warnings else "completed"
         meta.update(
@@ -299,6 +366,97 @@ class DebateOrchestrator:
         if is_final_turn:
             opening += " This is the final turn. Briefly name the deepest disagreement and any shared ground."
         return opening
+
+    @staticmethod
+    def _fallback_generation(
+        *,
+        topic: str,
+        news_context: str,
+        transcript: list[dict[str, str]],
+        speaker: str,
+        turn_index: int,
+        turns: int,
+        reason: str,
+    ) -> dict[str, Any]:
+        return {
+            "text": DebateOrchestrator._fallback_turn_text(
+                topic=topic,
+                news_context=news_context,
+                transcript=transcript,
+                speaker=speaker,
+                turn_index=turn_index,
+                turns=turns,
+            ),
+            "latency_ms": 0.0,
+            "provider": {
+                "name": "local_fallback",
+                "error": reason,
+            },
+        }
+
+    @staticmethod
+    def _fallback_turn_text(
+        *,
+        topic: str,
+        news_context: str,
+        transcript: list[dict[str, str]],
+        speaker: str,
+        turn_index: int,
+        turns: int,
+    ) -> str:
+        context_sentence = news_context.split(". ")[0].strip()
+        if len(context_sentence) > 180:
+            context_sentence = context_sentence[:177].rstrip() + "..."
+
+        if turn_index == turns:
+            if speaker == "agent_1":
+                return (
+                    f"Wenn man es herunterbricht, bleibt bei {topic} ein harter "
+                    "Dissens: Was ist belegbar, und was ist nur Empoerung im "
+                    "Morgennebel? Gemeinsam ist immerhin die Einsicht, dass man "
+                    "bei duennen Fakten lieber nachfragt als sofort das grosse "
+                    "Urteil faellt."
+                )
+            return (
+                f"Der tiefere Punkt bei {topic} ist doch, dass oeffentliche "
+                "Aufmerksamkeit schnell moralische Gewissheit simuliert. "
+                "Gemeinsame Basis waere, erst die Quellen ernst zu nehmen und "
+                "dann zu streiten, nicht umgekehrt."
+            )
+
+        if not transcript:
+            if speaker == "agent_1":
+                return (
+                    f"Ich wuerde bei {topic} erst einmal die Bremse antippen: "
+                    f"{context_sentence}. Daraus kann man eine Debatte machen, "
+                    "aber bitte nicht so tun, als laege schon die ganze Wahrheit "
+                    "auf dem Fruehstueckstisch."
+                )
+            return (
+                f"Bei {topic} ist interessant, wie schnell aus einer Meldung ein "
+                f"gesellschaftliches Symbol wird: {context_sentence}. Die Frage "
+                "ist weniger, wer gerade recht hat, sondern warum uns diese "
+                "Geschichte so zuverlaessig triggert."
+            )
+
+        previous = transcript[-1]["text"]
+        if len(previous) > 150:
+            previous = previous[:147].rstrip() + "..."
+
+        if speaker == "agent_1":
+            return (
+                "Da hake ich ein: "
+                f"'{previous}' klingt plausibel, aber mir fehlt der zweite "
+                "Beleg. Gerade bei einer Schlagzeile muss man doch trennen "
+                "zwischen Nachricht, Interpretation und dem kleinen Theater, "
+                "das wir selbst daraus machen."
+            )
+        return (
+            "Ja, aber diese Trennung ist selbst schon politisch: "
+            f"'{previous}' zeigt, dass Fakten nie voellig nackt auftreten. "
+            "Sie kommen mit Tonfall, Medium und Publikum, und genau dort beginnt "
+            "die eigentliche Debatte."
+        )
 
     def _persist_audio(
         self, *, conversation_id: str, turn_index: int, audio_bytes: bytes
