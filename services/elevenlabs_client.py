@@ -15,6 +15,7 @@ class ElevenLabsClient:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.base_url = settings.elevenlabs_base_url
+        self._agent_voice_cache: dict[str, str | None] = {}
         self.session = requests.Session()
         retry = Retry(
             total=3,
@@ -100,6 +101,41 @@ class ElevenLabsClient:
             "raw": payload_response,
             "provider": self._extract_provider_metadata(response),
         }
+
+    def get_agent_voice_id(self, *, agent_id: str) -> str | None:
+        if agent_id in self._agent_voice_cache:
+            return self._agent_voice_cache[agent_id]
+
+        url = f"{self.base_url}/v1/convai/agents/{agent_id}"
+        try:
+            response = self.session.get(
+                url,
+                headers=self.default_headers,
+                timeout=(5, self.settings.request_timeout_seconds),
+            )
+        except requests.Timeout as exc:
+            raise ExternalServiceError("ElevenLabs get-agent timed out") from exc
+        except requests.RequestException as exc:
+            raise ExternalServiceError("ElevenLabs get-agent request failed") from exc
+
+        if response.status_code >= 400:
+            raise ExternalServiceError(self._build_error_message("get-agent", response))
+
+        try:
+            payload_response = response.json()
+        except ValueError as exc:
+            raise ExternalServiceError("ElevenLabs get-agent returned invalid JSON") from exc
+
+        voice_id = (
+            payload_response.get("conversation_config", {})
+            .get("tts", {})
+            .get("voice_id")
+        )
+        if not isinstance(voice_id, str) or not voice_id.strip():
+            voice_id = None
+
+        self._agent_voice_cache[agent_id] = voice_id
+        return voice_id
 
     def synthesize_speech(
         self,

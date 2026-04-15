@@ -39,14 +39,10 @@ Required:
 - `ELEVENLABS_AGENT_1_ID`
 - `ELEVENLABS_AGENT_2_ID`
 
-Needed for `include_audio=true`:
-
-- `ELEVENLABS_VOICE_1_ID`
-- `ELEVENLABS_VOICE_2_ID`
-
 Optional tuning:
 
 - `ELEVENLABS_BASE_URL` (default: `https://api.elevenlabs.io`)
+- `ELEVENLABS_VOICE_1_ID` / `ELEVENLABS_VOICE_2_ID` (optional voice overrides; by default voices are read from the ElevenLabs agent config)
 - `DATABASE_PATH` (default: `data/debates.json`)
 - `AUDIO_STORAGE_DIR` (default: `data/audio`)
 - `TTS_MODEL_ID` (default: `eleven_flash_v2_5`)

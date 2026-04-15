@@ -142,14 +142,25 @@ class DebateOrchestrator:
             )
 
             if include_audio:
-                if profile.voice_id is None:
+                voice_id = profile.voice_id
+                if voice_id is None:
+                    try:
+                        voice_id = self.elevenlabs_client.get_agent_voice_id(
+                            agent_id=profile.agent_id
+                        )
+                    except ExternalServiceError as exc:
+                        warnings.append(
+                            f"Could not load voice id for {speaker}: {str(exc)}"
+                        )
+
+                if voice_id is None:
                     warnings.append(
                         f"Missing voice id for {speaker}; skipped audio for turn {turn_index}"
                     )
                 else:
                     try:
                         tts = self.elevenlabs_client.synthesize_speech(
-                            voice_id=profile.voice_id,
+                            voice_id=voice_id,
                             text=turn_text,
                             language=language,
                         )

@@ -94,19 +94,20 @@ Required for live ElevenLabs calls:
 - `ELEVENLABS_AGENT_1_ID`
 - `ELEVENLABS_AGENT_2_ID`
 
-Needed only when `include_audio=true`:
-
-- `ELEVENLABS_VOICE_1_ID`
-- `ELEVENLABS_VOICE_2_ID`
-
 Useful local overrides:
 
 ```bash
+ELEVENLABS_VOICE_1_ID=voice_override_for_agent_1
+ELEVENLABS_VOICE_2_ID=voice_override_for_agent_2
 DATABASE_PATH=data/debates.json
 AUDIO_STORAGE_DIR=data/audio
 MAX_TURNS=20
 LOG_LEVEL=DEBUG
 ```
+
+By default, MP3 generation reads each voice from the configured ElevenLabs
+agent. Set `ELEVENLABS_VOICE_1_ID` or `ELEVENLABS_VOICE_2_ID` only when testing
+a local override.
 
 Never commit `.env`, API keys, generated credentials, or secret values in code,
 tests, docs, commit messages, or PR text.

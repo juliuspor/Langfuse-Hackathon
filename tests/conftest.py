@@ -17,6 +17,8 @@ class FakeElevenLabsClient:
         self.simulate_calls: list[str] = []
         self.simulate_requests: list[dict] = []
         self.turn_texts: list[str] = []
+        self.agent_voice_ids: dict[str, str | None] = {}
+        self.get_agent_voice_calls: list[str] = []
         self.tts_calls: list[str] = []
         self.fail_tts_on_turn: int | None = None
 
@@ -50,6 +52,10 @@ class FakeElevenLabsClient:
                 ]
             },
         }
+
+    def get_agent_voice_id(self, *, agent_id: str) -> str | None:
+        self.get_agent_voice_calls.append(agent_id)
+        return self.agent_voice_ids.get(agent_id)
 
     def synthesize_speech(self, *, voice_id: str, text: str, language: str) -> dict:
         self.tts_calls.append(voice_id)
