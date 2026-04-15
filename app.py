@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 import time
 import uuid
 from typing import Any
 
-from flask import Flask, g, jsonify, render_template, request
+from flask import Flask, g, jsonify, request, send_from_directory
 from werkzeug.exceptions import HTTPException
 
 from models.storage import Storage
@@ -15,6 +16,8 @@ from services.elevenlabs_client import ElevenLabsClient
 from services.news_context import NewsContextService
 from utils.config import Settings, load_settings
 from utils.errors import AppError, ConfigurationError
+
+FRONTEND_BUILD_DIR = Path(__file__).resolve().parent / "static" / "frontend"
 
 
 def create_app(test_config: dict[str, Any] | None = None) -> Flask:
@@ -68,8 +71,8 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     app.register_blueprint(debate_bp)
 
     @app.get("/")
-    def index() -> str:
-        return render_template("index.html")
+    def index() -> Any:
+        return send_from_directory(FRONTEND_BUILD_DIR, "index.html")
 
     @app.get("/health")
     def health() -> Any:
