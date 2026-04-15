@@ -43,6 +43,7 @@ class DebateOrchestrator:
         language: str,
         include_audio: bool,
         request_id: str,
+        article_context: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         result: dict[str, Any] | None = None
         for event in self.iter_debate_events(
@@ -51,6 +52,7 @@ class DebateOrchestrator:
             language=language,
             include_audio=include_audio,
             request_id=request_id,
+            article_context=article_context,
         ):
             if event["event"] == "completed":
                 result = event["data"]
@@ -66,10 +68,11 @@ class DebateOrchestrator:
         language: str,
         include_audio: bool,
         request_id: str,
+        article_context: dict[str, str] | None = None,
     ) -> Iterator[dict[str, Any]]:
         conversation_id = str(uuid.uuid4())
         news_context = self.news_context_service.build_context(
-            topic=topic, language=language
+            topic=topic, language=language, article_context=article_context
         )
 
         warnings: list[str] = []

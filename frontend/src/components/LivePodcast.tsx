@@ -10,7 +10,7 @@ import {
   Volume2,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { startLiveDebate } from "@/lib/api";
+import { DEFAULT_TURNS, startLiveDebate } from "@/lib/api";
 import { SPEAKERS, type DebateTurn, type NewsHeadline } from "@/lib/mockData";
 import WaveformAnimation from "./WaveformAnimation";
 import { cn } from "@/lib/utils";
@@ -21,7 +21,6 @@ interface LivePodcastProps {
 }
 
 type DebateStatus = "connecting" | "streaming" | "completed" | "error";
-const TURN_COUNT = 8;
 
 function ElapsedTime({ isRunning }: { isRunning: boolean }) {
   const [sec, setSec] = useState(0);
@@ -153,7 +152,7 @@ export default function LivePodcast({ headline, onBack }: LivePodcastProps) {
     setWarnings([]);
     setErrorMessage(null);
 
-    const cancel = startLiveDebate(headline.headline, TURN_COUNT, true, {
+    const cancel = startLiveDebate(headline.headline, DEFAULT_TURNS, true, headline, {
       onConnected: () => setStatus("connecting"),
       onConversation: (conversation) => {
         setConversationId(conversation.conversation_id);
@@ -203,7 +202,7 @@ export default function LivePodcast({ headline, onBack }: LivePodcastProps) {
   const currentSpeaker = activeSpeaker ? SPEAKERS[activeSpeaker] : null;
   const progressWidth = `${Math.min(
     100,
-    status === "completed" ? 100 : Math.max(5, (turns.length / TURN_COUNT) * 100)
+    status === "completed" ? 100 : Math.max(5, (turns.length / DEFAULT_TURNS) * 100)
   )}%`;
 
   return (

@@ -1,7 +1,8 @@
 import { motion } from "framer-motion";
 import { Search, Mic } from "lucide-react";
-import { MOCK_HEADLINES, type NewsHeadline } from "@/lib/mockData";
-import { useState } from "react";
+import { type NewsHeadline } from "@/lib/mockData";
+import { fetchHeadlines } from "@/lib/api";
+import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface TopicPickerProps {
@@ -21,9 +22,29 @@ function formatDate(): string {
 
 export default function TopicPicker({ onSelectTopic }: TopicPickerProps) {
   const [activeCategory, setActiveCategory] = useState("Schlagzeilen");
-  const headlines = MOCK_HEADLINES.filter(
-    (h) => activeCategory === "Schlagzeilen" || h.category === activeCategory
-  );
+  const [headlines, setHeadlines] = useState<NewsHeadline[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const loadHeadlines = useCallback(async () => {
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      const feed = await fetchHeadlines(activeCategory, 10);
+      setHeadlines(feed.headlines);
+    } catch (error) {
+      setHeadlines([]);
+      setErrorMessage(
+        error instanceof Error ? error.message : "Nachrichten konnten nicht geladen werden"
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [activeCategory]);
+
+  useEffect(() => {
+    void loadHeadlines();
+  }, [loadHeadlines]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -68,9 +89,48 @@ export default function TopicPicker({ onSelectTopic }: TopicPickerProps) {
         </div>
       </header>
 
-      {/* News feed — card layout */}
       <div className="max-w-2xl mx-auto px-3 py-4 space-y-3">
-        {headlines.map((h, i) => (
+        {isLoading && (
+          <div className="rounded-xl border border-border bg-card p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-5 h-5 rounded-full bg-muted animate-pulse" />
+              <span className="h-3 w-24 rounded bg-muted animate-pulse" />
+            </div>
+            <div className="h-4 w-5/6 rounded bg-muted animate-pulse mb-2" />
+            <div className="h-3 w-full rounded bg-muted animate-pulse mb-2" />
+            <div className="h-3 w-2/3 rounded bg-muted animate-pulse" />
+          </div>
+        )}
+
+        {!isLoading && errorMessage && (
+          <div className="rounded-xl border border-border bg-card p-4">
+            <p className="font-display font-semibold text-[15px] text-card-foreground mb-1.5">
+              Keine aktuellen Meldungen
+            </p>
+            <p className="text-[13px] text-muted-foreground leading-relaxed mb-3">
+              {errorMessage}
+            </p>
+            <button
+              onClick={() => void loadHeadlines()}
+              className="inline-flex items-center px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-[11px] font-semibold text-primary"
+            >
+              Erneut laden
+            </button>
+          </div>
+        )}
+
+        {!isLoading && !errorMessage && headlines.length === 0 && (
+          <div className="rounded-xl border border-border bg-card p-4">
+            <p className="font-display font-semibold text-[15px] text-card-foreground mb-1.5">
+              Heute noch ruhig
+            </p>
+            <p className="text-[13px] text-muted-foreground leading-relaxed">
+              Für diese Rubrik wurden gerade keine passenden Meldungen gefunden.
+            </p>
+          </div>
+        )}
+
+        {!isLoading && !errorMessage && headlines.map((h, i) => (
           <motion.article
             key={h.id}
             initial={{ opacity: 0, y: 12 }}

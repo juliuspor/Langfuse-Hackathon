@@ -3,6 +3,10 @@ export interface NewsHeadline {
   headline: string;
   teaser: string;
   source: string;
+  source_url?: string | null;
+  url?: string | null;
+  image_url?: string | null;
+  published_at?: string | null;
   timeAgo: string;
   category: string;
   relatedStories?: { headline: string; source: string; timeAgo: string }[];
@@ -31,91 +35,6 @@ export const SPEAKERS = {
     role: "Philosoph & Autor",
   },
 };
-
-export const MOCK_HEADLINES: NewsHeadline[] = [
-  {
-    id: "1",
-    headline: "Bundesregierung beschließt Tempolimit auf Autobahnen ab 2027",
-    teaser: "Nach jahrelanger Debatte hat das Kabinett einen Gesetzentwurf für eine generelle Geschwindigkeitsbegrenzung von 130 km/h auf Autobahnen verabschiedet.",
-    source: "Tagesschau",
-    timeAgo: "vor 2 Std.",
-    category: "Schlagzeilen",
-    relatedStories: [
-      { headline: "ADAC warnt vor Einschränkung der Mobilität", source: "BILD", timeAgo: "vor 3 Std." },
-      { headline: "Umweltverbände begrüßen Entscheidung als überfällig", source: "Süddeutsche Zeitung", timeAgo: "vor 1 Std." },
-    ],
-  },
-  {
-    id: "2",
-    headline: "EU-Kommission legt Regulierung für KI-Arbeitsplätze vor",
-    teaser: "Neue Richtlinien sollen den Einsatz von künstlicher Intelligenz in Behörden und Verwaltung regeln. Gewerkschaften fordern Nachbesserungen.",
-    source: "ZEIT Online",
-    timeAgo: "vor 4 Std.",
-    category: "Schlagzeilen",
-    relatedStories: [
-      { headline: "Welche Jobs sind betroffen? Eine Analyse", source: "FAZ", timeAgo: "vor 5 Std." },
-      { headline: "Microsoft kündigt Partnerschaft mit Bundesagentur für Arbeit an", source: "Handelsblatt", timeAgo: "vor 3 Std." },
-    ],
-  },
-  {
-    id: "3",
-    headline: "Klimaproteste in Berlin: Aktivisten blockieren Regierungsviertel",
-    teaser: "Tausende Demonstranten fordern sofortige Maßnahmen gegen den Klimawandel. Der Verkehr in der Innenstadt stand stundenlang still.",
-    source: "Der Spiegel",
-    timeAgo: "vor 1 Std.",
-    category: "Deutschland",
-    relatedStories: [
-      { headline: "Polizei räumt Blockaden am Brandenburger Tor", source: "Berliner Morgenpost", timeAgo: "vor 45 Min." },
-    ],
-  },
-  {
-    id: "4",
-    headline: "Mieten in deutschen Großstädten steigen auf neues Rekordhoch",
-    teaser: "Laut einer Studie des IW Köln sind die Angebotsmieten im ersten Quartal erneut um 8 Prozent gestiegen.",
-    source: "Handelsblatt",
-    timeAgo: "vor 6 Std.",
-    category: "Wirtschaft",
-    relatedStories: [
-      { headline: "Hamburg plant Mietpreisbremse für weitere fünf Jahre", source: "NDR", timeAgo: "vor 4 Std." },
-      { headline: "Immobilienbranche kritisiert staatliche Eingriffe", source: "Welt", timeAgo: "vor 5 Std." },
-    ],
-  },
-  {
-    id: "5",
-    headline: "PISA-Studie: Deutsche Schüler fallen weiter zurück",
-    teaser: "Die neuesten Ergebnisse zeigen einen anhaltenden Rückgang in Mathematik und Lesekompetenz. Bildungsminister kündigen Sofortprogramm an.",
-    source: "FAZ",
-    timeAgo: "vor 8 Std.",
-    category: "Wissen",
-  },
-  {
-    id: "6",
-    headline: "Deutsche Bahn: Neue Schnellstrecke Berlin-Hamburg eröffnet",
-    teaser: "Die Fahrzeit zwischen den beiden Städten verkürzt sich auf unter 90 Minuten. Es ist das größte Infrastrukturprojekt des Jahrzehnts.",
-    source: "Süddeutsche Zeitung",
-    timeAgo: "vor 3 Std.",
-    category: "Deutschland",
-  },
-  {
-    id: "7",
-    headline: "Scholz und Macron uneins über europäische Verteidigungspolitik",
-    teaser: "Beim Gipfeltreffen in Paris zeigten sich deutliche Differenzen über die Finanzierung einer gemeinsamen Armee.",
-    source: "Der Spiegel",
-    timeAgo: "vor 5 Std.",
-    category: "Welt",
-    relatedStories: [
-      { headline: "NATO fordert höhere Verteidigungsausgaben von Deutschland", source: "Reuters", timeAgo: "vor 7 Std." },
-    ],
-  },
-  {
-    id: "8",
-    headline: "FC Bayern verliert Champions-League-Halbfinale gegen Real Madrid",
-    teaser: "Trotz dominanter erster Halbzeit unterliegt München in der Verlängerung mit 2:3.",
-    source: "kicker",
-    timeAgo: "vor 10 Std.",
-    category: "Sport",
-  },
-];
 
 export const MOCK_DEBATE_TURNS: Record<string, DebateTurn[]> = {
   "1": [

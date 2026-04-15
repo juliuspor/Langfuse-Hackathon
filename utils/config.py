@@ -17,7 +17,11 @@ class Settings:
     elevenlabs_voice_1_id: str | None
     elevenlabs_voice_2_id: str | None
     elevenlabs_base_url: str
+    news_provider: str
     news_api_key: str | None
+    news_country: str
+    news_language: str
+    news_cache_ttl_seconds: int
     database_path: Path
     audio_storage_dir: Path
     request_timeout_seconds: float
@@ -75,6 +79,10 @@ def load_settings() -> Settings:
     if max_turns < 2:
         raise ConfigurationError("MAX_TURNS must be at least 2")
 
+    news_cache_ttl_seconds = _int_env("NEWS_CACHE_TTL_SECONDS", 600)
+    if news_cache_ttl_seconds < 0:
+        raise ConfigurationError("NEWS_CACHE_TTL_SECONDS must be zero or greater")
+
     optimize_streaming_latency_raw = os.getenv("TTS_OPTIMIZE_STREAMING_LATENCY")
     optimize_streaming_latency: int | None
     if (
@@ -110,7 +118,11 @@ def load_settings() -> Settings:
         elevenlabs_base_url=os.getenv(
             "ELEVENLABS_BASE_URL", "https://api.elevenlabs.io"
         ).rstrip("/"),
+        news_provider=os.getenv("NEWS_PROVIDER", "gnews").strip().lower(),
         news_api_key=_optional_env("NEWS_API_KEY"),
+        news_country=os.getenv("NEWS_COUNTRY", "de").strip().lower() or "de",
+        news_language=os.getenv("NEWS_LANGUAGE", "de").strip().lower() or "de",
+        news_cache_ttl_seconds=news_cache_ttl_seconds,
         database_path=database_path,
         audio_storage_dir=audio_storage_dir,
         request_timeout_seconds=timeout,

@@ -65,6 +65,27 @@ def test_transcript_persistence(orchestrator, storage) -> None:
     assert len(stored["turns"]) == 3
 
 
+def test_article_context_is_used_for_news_context(orchestrator) -> None:
+    result = orchestrator.start_debate(
+        topic="Bundestag debattiert neue Klimahilfen",
+        turns=2,
+        language="de",
+        include_audio=False,
+        request_id="req-article",
+        article_context={
+            "source": "Tagesschau",
+            "teaser": "Die Koalition ringt um ein neues Paket.",
+            "url": "https://example.test/klima",
+            "published_at": "2026-04-15T08:00:00Z",
+        },
+    )
+
+    news_context = result["meta"]["news_context"]
+    assert news_context["source"] == "news_article"
+    assert news_context["article_source"] == "Tagesschau"
+    assert "Die Koalition ringt" in news_context["context"]
+
+
 def test_mocked_tts_failure_returns_warning_status(
     orchestrator, fake_elevenlabs_client
 ) -> None:

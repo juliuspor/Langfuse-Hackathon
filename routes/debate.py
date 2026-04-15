@@ -10,6 +10,7 @@ from flask import stream_with_context
 from utils.errors import AppError, NotFoundError, ValidationError
 
 debate_bp = Blueprint("debate", __name__)
+DEFAULT_TURNS = 4
 
 
 @debate_bp.post("/api/debate/start")
@@ -27,6 +28,7 @@ def start_debate() -> Any:
         turns=validated["turns"],
         language=validated["language"],
         include_audio=validated["include_audio"],
+        article_context=validated["article_context"],
         request_id=g.request_id,
     )
     return jsonify(result)
@@ -53,6 +55,7 @@ def live_debate() -> Any:
                 turns=validated["turns"],
                 language=validated["language"],
                 include_audio=validated["include_audio"],
+                article_context=validated["article_context"],
                 request_id=request_id,
             ):
                 yield _sse(event["event"], event["data"])
@@ -133,7 +136,7 @@ def _validate_start_payload(
             "Field 'topic' is required and must be a non-empty string"
         )
 
-    turns = payload.get("turns", 8)
+    turns = payload.get("turns", DEFAULT_TURNS)
     if isinstance(turns, bool) or not isinstance(turns, int):
         raise ValidationError("Field 'turns' must be an integer")
     if turns < 2 or turns > max_turns:
@@ -154,11 +157,12 @@ def _validate_start_payload(
         "turns": turns,
         "language": language.strip(),
         "include_audio": include_audio,
+        "article_context": _validate_article_context(payload),
     }
 
 
 def _validate_live_args(args: Any, *, max_turns: int) -> dict[str, Any]:
-    turns_raw = args.get("turns", "8")
+    turns_raw = args.get("turns", str(DEFAULT_TURNS))
     try:
         turns = int(turns_raw)
     except (TypeError, ValueError) as exc:
@@ -178,6 +182,10 @@ def _validate_live_args(args: Any, *, max_turns: int) -> dict[str, Any]:
             "turns": turns,
             "language": args.get("language", "de"),
             "include_audio": include_audio,
+            "article_url": args.get("article_url"),
+            "article_source": args.get("article_source"),
+            "article_teaser": args.get("article_teaser"),
+            "article_published_at": args.get("article_published_at"),
         },
         max_turns=max_turns,
     )
@@ -188,3 +196,20 @@ def _sse(event: str, data: dict[str, Any]) -> str:
         f"event: {event}\n"
         f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
     )
+
+
+def _validate_article_context(payload: dict[str, Any]) -> dict[str, str] | None:
+    fields = {
+        "url": payload.get("article_url"),
+        "source": payload.get("article_source"),
+        "teaser": payload.get("article_teaser"),
+        "published_at": payload.get("article_published_at"),
+    }
+    context: dict[str, str] = {}
+    for key, value in fields.items():
+        if value is None or value == "":
+            continue
+        if not isinstance(value, str):
+            raise ValidationError(f"Field 'article_{key}' must be a string")
+        context[key] = value.strip()[:800]
+    return context or None

@@ -1,6 +1,7 @@
 # AGENTS.md
 
-Guidance for AI agents working on this Flask/Python hackathon codebase.
+Guidance for AI agents working on this Flask/Python + React/Vite hackathon
+codebase.
 
 ## Project Overview
 
@@ -22,14 +23,19 @@ When in doubt, prioritize a strong end-to-end demo over broad product features.
 | ------------------------------- | ---------------------------------------- | ----------- |
 | `app.py`                        | Flask app factory, middleware, errors    | `README.md` |
 | `routes/debate.py`              | Debate API endpoints and validation      | -           |
+| `routes/news.py`                | Optional headlines API endpoint          | -           |
 | `services/debate_orchestrator.py` | Debate flow, turn order, storage writes | -           |
 | `services/elevenlabs_client.py` | ElevenLabs agent and TTS client          | -           |
 | `services/news_context.py`      | Mock neutral news context generation     | -           |
+| `services/news_feed.py`         | Optional external headline provider      | -           |
 | `models/storage.py`             | Local persistence for conversations      | -           |
 | `utils/config.py`               | Environment loading and settings         | -           |
 | `utils/errors.py`               | App-specific exception types             | -           |
-| `templates/`                    | Flask-rendered HTML                      | -           |
-| `static/`                       | Browser JavaScript and CSS               | -           |
+| `frontend/`                     | React/Vite source for the browser UI     | `frontend/README.md` |
+| `frontend/src/lib/mockData.ts`  | Mocked news feed data                    | -           |
+| `frontend/src/lib/api.ts`       | Browser API and SSE integration          | -           |
+| `static/frontend/`              | Generated frontend build served by Flask | -           |
+| `static/`                       | Flask static assets                      | -           |
 | `tests/`                        | Pytest coverage for MVP behavior         | -           |
 | `data/`                         | Local generated debate/audio data        | -           |
 
@@ -42,15 +48,22 @@ shape, or demo behavior.
 # Setup
 venv/bin/python -m pip install -r requirements.txt
 cp .env.example .env
+cd frontend && npm install
 
 # Development
 venv/bin/python -m flask --app app:create_app run
+cd frontend && npm run dev
 
 # Testing
 venv/bin/python -m pytest
 venv/bin/python -m pytest tests/test_validation.py
 venv/bin/python -m pytest tests/test_orchestrator.py
 venv/bin/python -m pytest tests/test_live_stream.py
+cd frontend && npm run test
+cd frontend && npm run lint
+
+# Frontend build for Flask
+cd frontend && npm run build
 
 # API smoke checks
 curl -s http://127.0.0.1:5000/health
@@ -67,6 +80,19 @@ venv/bin/python -m pytest
 
 For backend changes, run the focused test file first, then the full suite if the
 change touches orchestration, validation, persistence, or error handling.
+
+For frontend changes, use the React/Vite app in `frontend/`:
+
+```bash
+cd frontend
+npm run test
+npm run lint
+npm run build
+```
+
+`npm run build` writes generated assets to `static/frontend/`, which Flask serves
+from `/`. Commit source changes in `frontend/` and the refreshed build output
+when the task is to replace or ship the served UI.
 
 For UI/demo-flow changes, manually run the Flask app and test the main browser
 flow at:
@@ -94,11 +120,20 @@ Required for live ElevenLabs calls:
 - `ELEVENLABS_AGENT_1_ID`
 - `ELEVENLABS_AGENT_2_ID`
 
+The React news feed is mocked in `frontend/src/lib/mockData.ts` for the current
+demo. `NEWS_API_KEY` and related news provider settings are optional and only
+needed if someone explicitly works on the `/api/news/headlines` path.
+
 Useful local overrides:
 
 ```bash
 ELEVENLABS_VOICE_1_ID=voice_override_for_agent_1
 ELEVENLABS_VOICE_2_ID=voice_override_for_agent_2
+NEWS_PROVIDER=gnews
+NEWS_API_KEY=optional_key_for_live_headlines
+NEWS_COUNTRY=de
+NEWS_LANGUAGE=de
+NEWS_CACHE_TTL_SECONDS=600
 DATABASE_PATH=data/debates.json
 AUDIO_STORAGE_DIR=data/audio
 MAX_TURNS=20
@@ -118,8 +153,8 @@ Always optimize for one crisp path:
 
 1. Start the Flask app.
 2. Open `http://127.0.0.1:5000/`.
-3. Enter one timely news topic.
-4. Generate a short debate of 4-8 turns.
+3. Pick one mocked headline from the React news feed.
+4. Generate a short debate of 4 turns.
 5. Confirm the UI streams turns in order and remains responsive.
 6. If audio is enabled, confirm each turn has playable audio and failures show
    as non-fatal warnings.
@@ -142,12 +177,22 @@ If live streaming appears stuck, test the SSE endpoint directly:
 curl -N "http://127.0.0.1:5000/api/debate/live?topic=Test&turns=4&language=de&include_audio=false"
 ```
 
+If headline retrieval is being worked on, remember that the demo UI still uses
+mocked headlines unless the task explicitly asks to wire in `/api/news/headlines`.
+
 If audio files cannot be served, verify the stored path is inside
 `AUDIO_STORAGE_DIR`. `routes/debate.py` intentionally rejects paths outside that
 directory.
 
 Generated debate data lives under `data/`. Do not delete local data unless the
 user explicitly asks or it is necessary for a test setup.
+
+If Flask serves an old UI, rebuild the frontend:
+
+```bash
+cd frontend
+npm run build
+```
 
 ## Git Workflow
 
@@ -172,7 +217,10 @@ git checkout -b codex/short-task-name
 - Use dependency injection through `create_app(test_config=...)` for tests.
 - Preserve strict turn alternation between `agent_1` and `agent_2`.
 - Treat ElevenLabs/network calls as unreliable and surface friendly warnings.
-- Keep frontend code mobile-friendly and demo-first.
+- Keep frontend code in `frontend/` mobile-friendly and demo-first.
+- Keep `static/frontend/` as generated build output; do not hand-edit built
+  bundles unless explicitly debugging generated assets.
+- Keep the news feed mocked unless the user explicitly asks to enable live news.
 - Avoid adding dependencies unless they clearly improve the demo.
 
 ## Product Guidelines
@@ -189,8 +237,12 @@ git checkout -b codex/short-task-name
 - Search for existing behavior before adding new code.
 - Check `services/debate_orchestrator.py` before changing debate flow.
 - Check `routes/debate.py` before changing API inputs or outputs.
+- Check `routes/news.py` and `services/news_feed.py` before changing headline
+  retrieval.
 - Check `models/storage.py` before changing persistence format.
-- Check `static/app.js` and `templates/index.html` before changing UI behavior.
+- Check `frontend/src/` before changing UI behavior.
+- Check `frontend/src/lib/api.ts` before changing browser/backend contracts.
+- Check `frontend/src/lib/mockData.ts` before changing the mocked news feed.
 - Add or update tests for validation, orchestration, persistence, and regressions.
 - Keep success, error, and warning cases visible in the UI/API where relevant.
 
@@ -213,4 +265,5 @@ Read these when relevant:
 | Document    | When to Read                                      |
 | ----------- | ------------------------------------------------- |
 | `README.md` | Setup, environment variables, API examples, tests |
+| `frontend/README.md` | Frontend commands and Flask build output |
 | `.env.example` | Required and optional environment variables    |

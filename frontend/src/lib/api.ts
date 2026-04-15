@@ -1,7 +1,8 @@
-import { DebateTurn, getMockTurnsForTopic } from "./mockData";
+import { DebateTurn, getMockTurnsForTopic, type NewsHeadline } from "./mockData";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 const USE_MOCK = import.meta.env.VITE_USE_MOCK_API === "true";
+export const DEFAULT_TURNS = 4;
 
 export interface DebateSummary {
   conversation_id: string;
@@ -29,14 +30,34 @@ export interface LiveDebateCallbacks {
   onError?: (error: string) => void;
 }
 
+export interface NewsFeedResponse {
+  status: string;
+  provider: string;
+  category: string;
+  cached?: boolean;
+  fetched_at?: string;
+  headlines: NewsHeadline[];
+}
+
 export async function healthCheck(): Promise<{ status: string }> {
   return apiRequest<{ status: string }>("/health");
 }
 
+export async function fetchHeadlines(
+  category: string,
+  limit = 10
+): Promise<NewsFeedResponse> {
+  const params = new URLSearchParams({
+    category,
+    limit: String(limit),
+  });
+  return apiRequest<NewsFeedResponse>(`/api/news/headlines?${params}`);
+}
+
 export async function startDebate(
   topic: string,
-  turns: number,
-  includeAudio: boolean
+  turns = DEFAULT_TURNS,
+  includeAudio = true
 ): Promise<DebateSummary> {
   const debate = await apiRequest<DebateSummary>("/api/debate/start", {
     method: "POST",
@@ -60,9 +81,10 @@ export async function getDebate(conversationId: string): Promise<DebateSummary> 
 
 export function startLiveDebate(
   topic: string,
-  turns: number,
-  includeAudio: boolean,
-  callbacks: LiveDebateCallbacks
+  turns = DEFAULT_TURNS,
+  includeAudio = true,
+  headline: NewsHeadline | null = null,
+  callbacks: LiveDebateCallbacks = {}
 ): () => void {
   if (USE_MOCK) {
     return startMockDebate(topic, turns, callbacks);
@@ -74,6 +96,7 @@ export function startLiveDebate(
     language: "de",
     include_audio: String(includeAudio),
   });
+  addArticleParams(params, headline);
 
   const es = new EventSource(`${API_BASE}/api/debate/live?${params}`);
 
@@ -104,6 +127,24 @@ export function startLiveDebate(
   });
 
   return () => es.close();
+}
+
+function addArticleParams(params: URLSearchParams, headline: NewsHeadline | null) {
+  if (!headline) {
+    return;
+  }
+  if (headline.url) {
+    params.set("article_url", headline.url);
+  }
+  if (headline.source) {
+    params.set("article_source", headline.source);
+  }
+  if (headline.teaser) {
+    params.set("article_teaser", headline.teaser);
+  }
+  if (headline.published_at) {
+    params.set("article_published_at", headline.published_at);
+  }
 }
 
 function startMockDebate(
