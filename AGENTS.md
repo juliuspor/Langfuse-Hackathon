@@ -32,6 +32,7 @@ mechanism" alive in docs, UI copy, and demo flow.
 | `routes/news.py`                | Headlines API endpoint                   | -           |
 | `services/debate_orchestrator.py` | Debate flow, turn order, storage writes | -           |
 | `services/elevenlabs_client.py` | ElevenLabs agent and TTS client          | -           |
+| `services/fact_referee.py`      | OpenAI-backed Fakten-Schiri verdicts     | -           |
 | `services/news_context.py`      | Article-grounded/fallback news context   | -           |
 | `services/news_feed.py`         | External headline provider               | -           |
 | `models/storage.py`             | Local persistence for conversations      | -           |
@@ -136,6 +137,9 @@ Useful local overrides:
 ```bash
 ELEVENLABS_VOICE_1_ID=voice_override_for_agent_1
 ELEVENLABS_VOICE_2_ID=voice_override_for_agent_2
+OPENAI_API_KEY=local_openai_key
+FACT_REFEREE_MODEL=gpt-5-mini
+FACT_REFEREE_ENABLED=true
 NEWS_PROVIDER=gnews
 NEWS_API_KEY=local_news_provider_key
 NEWS_COUNTRY=de
@@ -162,7 +166,8 @@ Always optimize for one crisp path:
 2. Open `http://127.0.0.1:5000/`.
 3. Pick one headline from the React news feed.
 4. Generate a short debate of 4 turns.
-5. Confirm the UI streams turns in order and remains responsive.
+5. Confirm the UI streams turns in order, the Fakten-Schiri verdict card updates
+   after each turn, and the player remains responsive.
 6. If audio is enabled, confirm each turn has playable audio and failures show
    as non-fatal warnings.
 
@@ -182,6 +187,18 @@ If live streaming appears stuck, test the SSE endpoint directly:
 
 ```bash
 curl -N "http://127.0.0.1:5000/api/debate/live?topic=Test&turns=4&language=de&include_audio=false"
+```
+
+The current happy-path event order is:
+
+```text
+connected -> conversation -> turn -> referee -> turn -> referee -> ... -> completed
+```
+
+With audio enabled, each referee verdict still lands before the later MP3 update:
+
+```text
+connected -> conversation -> turn -> referee -> audio -> ... -> completed
 ```
 
 If headline retrieval fails, confirm `NEWS_API_KEY` is set and test the endpoint
@@ -204,6 +221,11 @@ If Flask serves an old UI, rebuild the frontend:
 cd frontend
 npm run build
 ```
+
+If the Fakten-Schiri is missing in the UI, check `OPENAI_API_KEY`,
+`FACT_REFEREE_ENABLED`, and the Flask logs. The runtime feature must use the
+real article context and a live OpenAI call when enabled; do not replace it
+with canned verdict text or placeholder review cards in the shipped app.
 
 ## Git Workflow
 
@@ -228,6 +250,7 @@ git checkout -b codex/short-task-name
 - Use dependency injection through `create_app(test_config=...)` for tests.
 - Preserve strict turn alternation between `agent_1` and `agent_2`.
 - Treat ElevenLabs/network calls as unreliable and surface friendly warnings.
+- Treat OpenAI/network referee calls as unreliable and surface friendly warnings.
 - Keep frontend code in `frontend/` mobile-friendly and demo-first.
 - Keep `static/frontend/` as generated build output; do not hand-edit built
   bundles unless explicitly debugging generated assets.
@@ -242,6 +265,9 @@ git checkout -b codex/short-task-name
 - Favor short, punchy turns over long essays.
 - Protect the live-style illusion: show progress, stream turns, and avoid blank
   waiting states.
+- Runtime demo behavior must stay grounded in real inputs. Do not ship mock news
+  headlines, mock referee verdicts, canned transcript turns, or fake "live"
+  progress states outside tests.
 - Preserve the judging story: actually works, fun, and agentic / innovative.
 - If a feature does not help the demo work, become more fun, or make the
   agentic behavior clearer, defer it.
@@ -250,6 +276,7 @@ git checkout -b codex/short-task-name
 
 - Search for existing behavior before adding new code.
 - Check `services/debate_orchestrator.py` before changing debate flow.
+- Check `services/fact_referee.py` before changing referee verdict behavior.
 - Check `routes/debate.py` before changing API inputs or outputs.
 - Check `routes/news.py` and `services/news_feed.py` before changing headline
   retrieval.
@@ -265,7 +292,7 @@ git checkout -b codex/short-task-name
 
 - First verify that the main demo path still works.
 - Prioritize regressions that break debate generation, live streaming, audio
-  playback, or stored conversation retrieval.
+  playback, fact-referee verdicts, or stored conversation retrieval.
 - Treat secret exposure, path traversal, unsafe file serving, and accidental
   external calls in tests as high-priority issues.
 - Check that validation failures return useful JSON errors.

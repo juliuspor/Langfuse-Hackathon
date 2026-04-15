@@ -9,8 +9,8 @@ environment.
 The frontend is staged like a morning podcast player, not a generic dashboard:
 choose one headline, start the live debate, and watch the two personas take
 turns while audio plays when available. The app expects the Flask backend to
-provide headlines, stream text turns, and send per-turn audio updates when MP3s
-are ready.
+provide headlines, stream text turns, stream a real Fakten-Schiri verdict after
+each turn when enabled, and send per-turn audio updates when MP3s are ready.
 
 ## Commands
 
@@ -31,3 +31,9 @@ backend origin. The Vite dev server proxies `/api` and `/health` to
 `http://127.0.0.1:5000`.
 
 `src/lib/debateData.ts` contains speaker metadata and shared UI types.
+`src/lib/api.ts` handles SSE events in the order `connected -> conversation ->
+turn -> referee -> audio`.
+
+The shipped UI must not invent demo verdicts locally. If the backend does not
+emit `referee` events because the feature is disabled or OpenAI fails, the UI
+should show that state honestly rather than rendering mock referee cards.

@@ -48,7 +48,8 @@ just enough theatrical friction to make the topic stick.
 2. Open `http://127.0.0.1:5000/`.
 3. Pick one headline from the news feed.
 4. Generate a short 4-turn debate.
-5. Watch the turns stream in order while the podcast-style UI stays responsive.
+5. Watch the turns stream in order, with the Fakten-Schiri card updating right
+   after each new turn while the podcast-style UI stays responsive.
 6. If audio is enabled, play the generated turns; if audio fails, the transcript
    still completes with friendly warnings.
 
@@ -85,6 +86,7 @@ cp .env.example .env
 - `routes/news.py` exposes the headlines endpoint.
 - `services/` contains debate orchestration, ElevenLabs calls, and news context
   generation.
+- `services/fact_referee.py` contains the OpenAI-backed Fakten-Schiri verdict service.
 - `services/news_feed.py` contains the external headline provider.
 - `frontend/` contains the React/Vite source app.
 - `frontend/src/lib/debateData.ts` contains speaker metadata and shared UI types.
@@ -119,6 +121,10 @@ Optional tuning:
 - `FACT_REFEREE_ENABLED` (default: `false`)
 - `REQUEST_TIMEOUT_SECONDS` (default: `45`)
 - `LOG_LEVEL` (default: `INFO`)
+
+When the Fakten-Schiri is enabled, verdicts come from a live OpenAI call over
+the selected article context and current transcript turn. The shipped app does
+not invent referee cards locally when the backend cannot judge a turn.
 
 ## Run
 
@@ -205,7 +211,15 @@ Sample response:
       "turn_index": 1,
       "speaker": "agent_1",
       "text": "...",
-      "audio_url": "/api/debate/a9b7f40c-2d1f-49d7-9fbf-e0f8f074d7a3/audio/1.mp3"
+      "audio_url": "/api/debate/a9b7f40c-2d1f-49d7-9fbf-e0f8f074d7a3/audio/1.mp3",
+      "referee": {
+        "turn_index": 1,
+        "speaker": "agent_1",
+        "verdict": "yellow",
+        "badge": "Gelb",
+        "reason": "Die Zuspitzung passt zum Artikel, geht aber einen Schritt weiter als die Quellenlage.",
+        "confidence": 82
+      }
     }
   ],
   "meta": {
@@ -218,7 +232,12 @@ Sample response:
     },
     "warnings": [],
     "status": "completed",
-    "total_turns": 4
+    "total_turns": 4,
+    "fact_referee": {
+      "enabled": true,
+      "model": "gpt-5-mini",
+      "judged_turns": 4
+    }
   }
 }
 ```
@@ -226,8 +245,9 @@ Sample response:
 ### Live debate stream
 
 The browser UI uses this endpoint to receive transcript turns as soon as they
-are generated. When audio is enabled, a later `audio` event updates the same turn
-with its MP3 URL after TTS finishes.
+are generated. When the Fakten-Schiri is enabled, the backend emits a `referee`
+event immediately after the matching `turn`. When audio is enabled, a later
+`audio` event updates the same turn with its MP3 URL after TTS finishes.
 
 ```bash
 curl -N "http://127.0.0.1:5000/api/debate/live?topic=Soll%20Deutschland%20ein%20Tempolimit%20einfuehren%3F&turns=4&language=de&include_audio=true"
@@ -238,19 +258,20 @@ When `turns` is omitted, debate endpoints default to 4 turns.
 Event order without audio:
 
 ```text
-connected -> conversation -> turn -> turn -> ... -> completed
+connected -> conversation -> turn -> referee -> turn -> referee -> ... -> completed
 ```
 
 Event order with audio:
 
 ```text
-connected -> conversation -> turn -> audio -> turn -> audio -> ... -> completed
+connected -> conversation -> turn -> referee -> audio -> turn -> referee -> audio -> ... -> completed
 ```
 
 The debate endpoints also accept optional article context fields:
 `article_url`, `article_source`, `article_teaser`, and
 `article_published_at`. The React news feed sends these fields for selected
-headlines.
+headlines. The Fakten-Schiri uses that same article-grounded context rather than
+mock review data.
 
 ### Get debate
 
@@ -277,11 +298,18 @@ npm run build
 `npm run lint` currently allows a handful of shadcn fast-refresh warnings from
 generated UI helpers, but should not report errors.
 
+If the debate runs but no referee cards appear, confirm `OPENAI_API_KEY` is set,
+`FACT_REFEREE_ENABLED=true`, and the backend can reach the OpenAI API. If the
+referee call fails, the debate still completes and reports a warning instead of
+rendering placeholder verdicts.
+
 ## Known limitations
 
 - Free news-provider plans can return delayed articles; use a paid or trial
   provider plan if the demo needs real-time headlines.
 - Live generation is streamed over one HTTP response, not a background job queue.
+- Fakten-Schiri verdicts are grounded in the selected article context and turn
+  history, not a full web search across the entire news cycle.
 - No background job queue for long debates.
 
 ## Next backend steps
