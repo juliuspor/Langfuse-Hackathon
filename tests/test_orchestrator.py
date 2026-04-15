@@ -74,13 +74,13 @@ def test_guidance_message_sets_distinct_speaker_roles(
         "message"
     ]
 
-    assert "Du sprichst jetzt als Markus Lanz" in first_guidance
+    assert "Du bist Markus Lanz" in first_guidance
     assert "journalistisch, konkret und leicht skeptisch" in first_guidance
     assert "Erueffne die Debatte mit einer klaren ersten These" in first_guidance
 
-    assert "Du sprichst jetzt als Richard David Precht" in second_guidance
+    assert "Du bist Richard David Precht" in second_guidance
     assert "philosophisch und zugespitzt" in second_guidance
-    assert "zitiere den letzten Beitrag nicht woertlich aus" in second_guidance
+    assert "zitiere den letzten Beitrag nicht woertlich" in second_guidance
     assert "Reagiere direkt auf den Kern des letzten Punkts von Markus Lanz" in (
         second_guidance
     )

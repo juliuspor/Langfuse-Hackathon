@@ -121,6 +121,7 @@ class DebateOrchestrator:
         }
 
         transcript: list[dict[str, str]] = []
+        text_fallback_reason: str | None = None
         try:
             for turn_index in range(1, turns + 1):
                 speaker = self._speaker_for_turn(turn_index)
@@ -145,11 +146,38 @@ class DebateOrchestrator:
                     }
                 )
 
-                generation = self.elevenlabs_client.simulate_turn(
-                    agent_id=profile.agent_id,
-                    partial_history=partial_history,
-                    language=language,
-                )
+                if text_fallback_reason is None:
+                    try:
+                        generation = self.elevenlabs_client.simulate_turn(
+                            agent_id=profile.agent_id,
+                            partial_history=partial_history,
+                            language=language,
+                        )
+                    except ExternalServiceError as exc:
+                        text_fallback_reason = str(exc)
+                        warnings.append(
+                            "ElevenLabs conversation failed; "
+                            "used local fallback debate text."
+                        )
+                        generation = self._fallback_generation(
+                            topic=topic,
+                            news_context=news_context["context"],
+                            transcript=transcript,
+                            speaker=speaker,
+                            turn_index=turn_index,
+                            turns=turns,
+                            reason=text_fallback_reason,
+                        )
+                else:
+                    generation = self._fallback_generation(
+                        topic=topic,
+                        news_context=news_context["context"],
+                        transcript=transcript,
+                        speaker=speaker,
+                        turn_index=turn_index,
+                        turns=turns,
+                        reason=text_fallback_reason,
+                    )
                 turn_text = generation["text"]
 
                 audio_path: str | None = None
@@ -430,12 +458,12 @@ class DebateOrchestrator:
         counterpart_name = (
             "Richard David Precht" if speaker == "agent_1" else "Markus Lanz"
         )
+        context_summary = DebateOrchestrator._compress_context(news_context)
         persona_instruction = (
-            "Sprich pointiert, journalistisch, konkret und leicht skeptisch. "
-            "Kurze, druckvolle Saetze. Keine philosophische Vorlesung."
+            "Sprich pointiert, journalistisch, konkret und leicht skeptisch."
             if speaker == "agent_1"
             else "Sprich gedanklich, philosophisch und zugespitzt, aber bleibe "
-            "konkret am Thema. Keine Moderationsfloskeln."
+            "konkret am Thema."
         )
         previous_claim = (
             DebateOrchestrator._compress_latest_turn(transcript[-1]["text"])
@@ -445,24 +473,19 @@ class DebateOrchestrator:
 
         if language.lower().startswith("de"):
             opening = (
-                f"Du sprichst jetzt als {speaker_name} im direkten Schlagabtausch mit {counterpart_name}. "
+                f"Du bist {speaker_name}. "
                 f"{persona_instruction} "
-                f"Thema: {topic}. Kontext: {news_context}. "
-                "Antworte auf Deutsch in 2 bis 4 Saetzen. "
-                "Bleibe in deiner Rolle, nenne deinen eigenen Namen nicht, "
-                "wechsle nicht die Persona und zitiere den letzten Beitrag nicht woertlich aus."
+                f"Thema: {topic}. Kontext: {context_summary}. "
+                "Antworte auf Deutsch in 2 bis 3 Saetzen. "
+                "Bleibe in deiner Rolle und zitiere den letzten Beitrag nicht woertlich."
             )
             if previous_claim:
                 opening += (
                     f" Reagiere direkt auf den Kern des letzten Punkts von {counterpart_name}: "
-                    f"{previous_claim}. Widersprich, praezisiere oder drehe den Gedanken weiter, "
-                    "statt ihn nachzuerzaehlen."
+                    f"{previous_claim}. Widersprich, praezisiere oder drehe den Gedanken weiter."
                 )
             else:
-                opening += (
-                    f" Erueffne die Debatte mit einer klaren ersten These zu {topic} "
-                    "und setze sofort Spannung in die Sache."
-                )
+                opening += " Erueffne die Debatte mit einer klaren ersten These."
             if is_final_turn:
                 opening += (
                     " Dies ist der letzte Turn. Benenne zum Schluss den tiefsten Dissens "
@@ -471,10 +494,10 @@ class DebateOrchestrator:
             return opening
 
         opening = (
-            f"You are speaking as {speaker_name} in a direct exchange with {counterpart_name}. "
+            f"You are {speaker_name}. "
             f"{persona_instruction} "
-            f"Topic: {topic}. Context: {news_context}. "
-            "Reply in 2 to 4 sentences, stay in character, do not switch persona, and do not quote the previous turn verbatim."
+            f"Topic: {topic}. Context: {context_summary}. "
+            "Reply in 2 to 3 sentences, stay in character, and do not quote the previous turn verbatim."
         )
         if previous_claim:
             opening += (
@@ -489,6 +512,23 @@ class DebateOrchestrator:
                 "and any shared ground."
             )
         return opening
+
+    @staticmethod
+    def _compress_context(news_context: str) -> str:
+        cleaned = " ".join(news_context.split()).strip()
+        if not cleaned:
+            return ""
+
+        sentence_end = min(
+            (index for index, char in enumerate(cleaned) if char in ".!?"),
+            default=-1,
+        )
+        if 0 < sentence_end <= 140:
+            cleaned = cleaned[: sentence_end + 1]
+        elif len(cleaned) > 140:
+            cleaned = cleaned[:137].rstrip() + "..."
+
+        return cleaned
 
     @staticmethod
     def _compress_latest_turn(turn_text: str) -> str:

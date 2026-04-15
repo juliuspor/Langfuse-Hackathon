@@ -10,7 +10,7 @@ from flask import stream_with_context
 from utils.errors import AppError, NotFoundError, ValidationError
 
 debate_bp = Blueprint("debate", __name__)
-DEFAULT_TURNS = 12
+DEFAULT_TURNS = 4
 
 
 @debate_bp.post("/api/debate/start")

@@ -52,13 +52,13 @@ class ElevenLabsClient:
             )
 
         started = time.perf_counter()
-        response_timeout_seconds = self.settings.request_timeout_seconds
+        response_timeout_seconds = min(self.settings.request_timeout_seconds, 12.0)
         initiation_message = self._build_conversation_initiation_message(
             language=language
         )
         last_error: Exception | None = None
 
-        for _attempt in range(2):
+        for _attempt in range(1):
             try:
                 signed_url = self._get_signed_conversation_url(agent_id=agent_id)
                 text = self._chat_turn_via_websocket(
