@@ -1,10 +1,11 @@
 # Lanz & Precht Daily Briefing Agent
 
-Minimal Flask web MVP for a live-style agent-to-agent debate flow using ElevenLabs agents and TTS.
+Minimal German-language Flask web MVP for a live-style agent-to-agent debate flow using ElevenLabs agents and TTS.
 
 ## What this app does
 
 - Starts a debate for a topic with strict turn alternation (`agent_1` -> `agent_2` -> ...).
+- Supports German only (`language=de`).
 - Streams each completed turn to the browser as a live event.
 - Plays each generated MP3 turn in sequence in the web UI.
 - Stores transcript + metadata in a local JSON file.

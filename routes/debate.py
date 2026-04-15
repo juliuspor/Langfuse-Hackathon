@@ -142,6 +142,8 @@ def _validate_start_payload(
     language = payload.get("language", "de")
     if not isinstance(language, str) or not language.strip():
         raise ValidationError("Field 'language' must be a non-empty string")
+    if language.strip().lower() != "de":
+        raise ValidationError("Field 'language' only supports 'de'")
 
     include_audio = payload.get("include_audio", True)
     if not isinstance(include_audio, bool):

@@ -51,7 +51,7 @@ async function startLiveDebate(formData) {
   const params = new URLSearchParams({
     topic: formData.get("topic"),
     turns: formData.get("turns"),
-    language: formData.get("language"),
+    language: "de",
     include_audio: "true",
   });
 

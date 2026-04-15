@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import re
+from dataclasses import dataclass
 import uuid
 from pathlib import Path
 from typing import Any, Iterator
@@ -10,6 +10,15 @@ from services.elevenlabs_client import ElevenLabsClient
 from services.news_context import NewsContextService
 from utils.config import Settings
 from utils.errors import ExternalServiceError, NotFoundError
+
+
+SPEAKER_ORDER = ("agent_1", "agent_2")
+
+
+@dataclass(frozen=True)
+class SpeakerProfile:
+    agent_id: str
+    voice_id: str | None
 
 
 class DebateOrchestrator:
@@ -93,7 +102,7 @@ class DebateOrchestrator:
         transcript: list[dict[str, str]] = []
         for turn_index in range(1, turns + 1):
             speaker = self._speaker_for_turn(turn_index)
-            agent_id, voice_id = self._ids_for_speaker(speaker)
+            profile = self._profile_for_speaker(speaker)
             guidance = self._build_guidance_message(
                 topic=topic,
                 news_context=news_context["context"],
@@ -114,11 +123,11 @@ class DebateOrchestrator:
             )
 
             generation = self.elevenlabs_client.simulate_turn(
-                agent_id=agent_id,
+                agent_id=profile.agent_id,
                 partial_history=partial_history,
                 language=language,
             )
-            turn_text = self._trim_to_sentence_limit(generation["text"])
+            turn_text = generation["text"]
 
             audio_path: str | None = None
             turn_meta: dict[str, Any] = {
@@ -133,14 +142,14 @@ class DebateOrchestrator:
             )
 
             if include_audio:
-                if voice_id is None:
+                if profile.voice_id is None:
                     warnings.append(
                         f"Missing voice id for {speaker}; skipped audio for turn {turn_index}"
                     )
                 else:
                     try:
                         tts = self.elevenlabs_client.synthesize_speech(
-                            voice_id=voice_id,
+                            voice_id=profile.voice_id,
                             text=turn_text,
                             language=language,
                         )
@@ -208,17 +217,22 @@ class DebateOrchestrator:
             raise NotFoundError(f"Conversation not found: {conversation_id}")
         return self._to_api_response(stored)
 
-    def _ids_for_speaker(self, speaker: str) -> tuple[str, str | None]:
-        if speaker == "agent_1":
-            return (
-                self.settings.elevenlabs_agent_1_id,
-                self.settings.elevenlabs_voice_1_id,
-            )
-        return self.settings.elevenlabs_agent_2_id, self.settings.elevenlabs_voice_2_id
+    def _profile_for_speaker(self, speaker: str) -> SpeakerProfile:
+        profiles = {
+            "agent_1": SpeakerProfile(
+                agent_id=self.settings.elevenlabs_agent_1_id,
+                voice_id=self.settings.elevenlabs_voice_1_id,
+            ),
+            "agent_2": SpeakerProfile(
+                agent_id=self.settings.elevenlabs_agent_2_id,
+                voice_id=self.settings.elevenlabs_voice_2_id,
+            ),
+        }
+        return profiles[speaker]
 
     @staticmethod
     def _speaker_for_turn(turn_index: int) -> str:
-        return "agent_1" if turn_index % 2 == 1 else "agent_2"
+        return SPEAKER_ORDER[(turn_index - 1) % len(SPEAKER_ORDER)]
 
     @staticmethod
     def _build_partial_history(
@@ -266,17 +280,6 @@ class DebateOrchestrator:
         if is_final_turn:
             opening += " This is the final turn. Briefly name the deepest disagreement and any shared ground."
         return opening
-
-    @staticmethod
-    def _trim_to_sentence_limit(text: str) -> str:
-        cleaned = re.sub(r"\[[A-Za-z][A-Za-z0-9 _.,:-]{0,40}\]", " ", text)
-        cleaned = re.sub(r"\s+", " ", cleaned).strip()
-        if not cleaned:
-            return cleaned
-        sentence_splits = re.split(r"(?<=[.!?])\s+", cleaned)
-        if len(sentence_splits) <= 5:
-            return cleaned
-        return " ".join(sentence_splits[:5]).strip()
 
     def _persist_audio(
         self, *, conversation_id: str, turn_index: int, audio_bytes: bytes

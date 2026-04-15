@@ -15,6 +15,8 @@ from utils.errors import ExternalServiceError
 class FakeElevenLabsClient:
     def __init__(self) -> None:
         self.simulate_calls: list[str] = []
+        self.simulate_requests: list[dict] = []
+        self.turn_texts: list[str] = []
         self.tts_calls: list[str] = []
         self.fail_tts_on_turn: int | None = None
 
@@ -22,8 +24,18 @@ class FakeElevenLabsClient:
         self, *, agent_id: str, partial_history: list[dict], language: str
     ) -> dict:
         self.simulate_calls.append(agent_id)
+        self.simulate_requests.append(
+            {
+                "agent_id": agent_id,
+                "partial_history": list(partial_history),
+                "language": language,
+            }
+        )
         turn_no = len(self.simulate_calls)
-        text = f"Turn {turn_no} statement. Follow-up sentence for natural flow."
+        if turn_no <= len(self.turn_texts):
+            text = self.turn_texts[turn_no - 1]
+        else:
+            text = f"Turn {turn_no} statement. Follow-up sentence for natural flow."
         return {
             "text": text,
             "latency_ms": 12.0,

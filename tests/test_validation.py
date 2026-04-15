@@ -38,3 +38,19 @@ def test_start_rejects_invalid_include_audio(app_client) -> None:
     assert response.status_code == 422
     payload = response.get_json()
     assert "include_audio" in payload["error"]["message"]
+
+
+def test_start_rejects_non_german_language(app_client) -> None:
+    response = app_client.post(
+        "/api/debate/start",
+        json={
+            "topic": "Klimapolitik",
+            "turns": 4,
+            "language": "en",
+            "include_audio": False,
+        },
+    )
+
+    assert response.status_code == 422
+    payload = response.get_json()
+    assert "language" in payload["error"]["message"]

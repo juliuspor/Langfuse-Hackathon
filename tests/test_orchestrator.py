@@ -24,6 +24,26 @@ def test_turn_alternation_logic(orchestrator, fake_elevenlabs_client, settings) 
     ]
 
 
+def test_generated_text_is_returned_without_post_processing(
+    orchestrator, fake_elevenlabs_client
+) -> None:
+    fake_elevenlabs_client.turn_texts = [
+        "Tem polimit [pause].",
+        "Sauberer Precht-Text.",
+    ]
+
+    result = orchestrator.start_debate(
+        topic="Tempolimit",
+        turns=2,
+        language="de",
+        include_audio=False,
+        request_id="req-raw",
+    )
+
+    assert result["turns"][0]["text"] == "Tem polimit [pause]."
+    assert result["turns"][1]["text"] == "Sauberer Precht-Text."
+
+
 def test_transcript_persistence(orchestrator, storage) -> None:
     result = orchestrator.start_debate(
         topic="Digitalisierung",
@@ -57,11 +77,3 @@ def test_mocked_tts_failure_returns_warning_status(
     assert result["turns"][0]["audio_url"] is not None
     assert result["turns"][1]["audio_url"] is None
     assert result["meta"]["warnings"]
-
-
-def test_prosody_tags_are_removed_before_output(orchestrator) -> None:
-    cleaned = orchestrator._trim_to_sentence_limit(
-        "Wir brauchen [fast] Fakten, keine [slow] Allgemeinplaetze. [pause 1s] Weiter."
-    )
-
-    assert cleaned == "Wir brauchen Fakten, keine Allgemeinplaetze. Weiter."

@@ -4,9 +4,9 @@ Guidance for AI agents working on this Flask/Python hackathon codebase.
 
 ## Project Overview
 
-Lanz & Precht Daily Briefing Agent is a simple web MVP that turns one daily
-news topic into a short live-style debate between two AI personas, with optional
-user call-in.
+Lanz & Precht Daily Briefing Agent is a simple German-language web MVP that
+turns one daily news topic into a short live-style debate between two AI
+personas, with optional user call-in.
 
 This is a hackathon project. Keep it small, demoable, and emotionally engaging.
 The project is expected to be graded on:
@@ -177,7 +177,7 @@ git checkout -b codex/short-task-name
 ## Product Guidelines
 
 - The MVP should make one topic feel alive quickly.
-- Default to German debate behavior unless a task says otherwise.
+- Support German debate behavior only (`language=de`).
 - Favor short, punchy turns over long essays.
 - Protect the live-style illusion: show progress, stream turns, and avoid blank
   waiting states.

@@ -95,7 +95,7 @@ h1 {
 
 .control-bar {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) 92px 128px auto;
+  grid-template-columns: minmax(240px, 1fr) 92px auto;
   gap: 12px;
   align-items: end;
   width: 100%;
