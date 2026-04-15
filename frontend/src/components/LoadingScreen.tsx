@@ -53,7 +53,7 @@ export default function LoadingScreen({ topic }: LoadingScreenProps) {
         className="max-w-[320px]"
       >
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/80 mb-3">
-          Live-Briefing startet
+          Live-Podcast startet
         </p>
         <h2 className="font-display text-2xl font-bold text-foreground mb-3">
           Diskussion wird vorbereitet

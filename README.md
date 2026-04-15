@@ -1,4 +1,4 @@
-# Lanz & Precht Daily Briefing Agent
+# Lanz & Precht Podcast-Mimik
 
 Focused German-language Flask + React web application for a live-style
 agent-to-agent news debate flow using ElevenLabs agents and TTS.
@@ -15,8 +15,8 @@ slightly theatrical German debate energy that makes one topic feel alive, but it
 only releases weekly.
 
 This app is the daily version of that ritual. Pick one headline, let two AI
-personas argue it out, and get a short live-style podcast briefing while the
-coffee is still brewing.
+personas argue it out, and get a short Lanz-und-Precht-artige Podcast-Mimik
+while the coffee is still brewing.
 
 ## The Morning Format
 

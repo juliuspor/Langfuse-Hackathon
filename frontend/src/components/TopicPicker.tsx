@@ -60,11 +60,11 @@ export default function TopicPicker({ onSelectTopic }: TopicPickerProps) {
           <p className="text-[11px] text-muted-foreground hidden sm:block">{formatDate()}</p>
         </div>
 
-        {/* Briefing hint */}
+        {/* Podcast hint */}
         <div className="px-4 pb-3">
           <div className="rounded-2xl border border-border bg-secondary/70 px-4 py-3">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/80">
-              Heute im Briefing
+              Heute im Podcast
             </p>
             <p className="mt-1 text-sm text-secondary-foreground">
               Ein Thema auswahlen, 12 kurze Turns starten, direkt in die Debatte rein.
