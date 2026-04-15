@@ -5,7 +5,7 @@ import {
 } from "./debateData";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
-export const DEFAULT_TURNS = 4;
+export const DEFAULT_TURNS = 12;
 
 export interface DebateSummary {
   conversation_id: string;

@@ -121,7 +121,6 @@ class DebateOrchestrator:
         }
 
         transcript: list[dict[str, str]] = []
-        text_fallback_reason: str | None = None
         try:
             for turn_index in range(1, turns + 1):
                 speaker = self._speaker_for_turn(turn_index)
@@ -146,38 +145,11 @@ class DebateOrchestrator:
                     }
                 )
 
-                if text_fallback_reason is None:
-                    try:
-                        generation = self.elevenlabs_client.simulate_turn(
-                            agent_id=profile.agent_id,
-                            partial_history=partial_history,
-                            language=language,
-                        )
-                    except ExternalServiceError as exc:
-                        text_fallback_reason = str(exc)
-                        warnings.append(
-                            "ElevenLabs simulate-conversation failed; "
-                            "used local fallback debate text."
-                        )
-                        generation = self._fallback_generation(
-                            topic=topic,
-                            news_context=news_context["context"],
-                            transcript=transcript,
-                            speaker=speaker,
-                            turn_index=turn_index,
-                            turns=turns,
-                            reason=text_fallback_reason,
-                        )
-                else:
-                    generation = self._fallback_generation(
-                        topic=topic,
-                        news_context=news_context["context"],
-                        transcript=transcript,
-                        speaker=speaker,
-                        turn_index=turn_index,
-                        turns=turns,
-                        reason=text_fallback_reason,
-                    )
+                generation = self.elevenlabs_client.simulate_turn(
+                    agent_id=profile.agent_id,
+                    partial_history=partial_history,
+                    language=language,
+                )
                 turn_text = generation["text"]
 
                 audio_path: str | None = None

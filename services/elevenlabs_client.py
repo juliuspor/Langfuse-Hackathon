@@ -53,7 +53,7 @@ class ElevenLabsClient:
 
         started = time.perf_counter()
         signed_url = self._get_signed_conversation_url(agent_id=agent_id)
-        response_timeout_seconds = min(self.settings.request_timeout_seconds, 15.0)
+        response_timeout_seconds = self.settings.request_timeout_seconds
         initiation_message = self._build_conversation_initiation_message(
             language=language
         )

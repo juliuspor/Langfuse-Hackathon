@@ -25,7 +25,7 @@ def test_start_rejects_invalid_turns(app_client) -> None:
     assert "turns" in payload["error"]["message"]
 
 
-def test_start_defaults_to_four_turns(app_client) -> None:
+def test_start_defaults_to_twelve_turns(app_client) -> None:
     response = app_client.post(
         "/api/debate/start",
         json={
@@ -37,8 +37,8 @@ def test_start_defaults_to_four_turns(app_client) -> None:
 
     assert response.status_code == 200
     payload = response.get_json()
-    assert payload["meta"]["total_turns"] == 4
-    assert len(payload["turns"]) == 4
+    assert payload["meta"]["total_turns"] == 12
+    assert len(payload["turns"]) == 12
 
 
 def test_start_rejects_invalid_include_audio(app_client) -> None:

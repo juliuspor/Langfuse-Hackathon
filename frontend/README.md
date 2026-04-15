@@ -3,7 +3,7 @@
 React/Vite frontend for the Flask app.
 
 The app loads headlines from Flask's `/api/news/headlines` endpoint and starts
-4-turn debates through `/api/debate/live`. Provider secrets stay in the backend
+12-turn debates through `/api/debate/live`. Provider secrets stay in the backend
 environment.
 
 The frontend is staged like a morning podcast player, not a generic dashboard:
@@ -37,3 +37,8 @@ turn -> referee -> audio`.
 The shipped UI must not invent demo verdicts locally. If the backend does not
 emit `referee` events because the feature is disabled or OpenAI fails, the UI
 should show that state honestly rather than rendering mock referee cards.
+
+The shipped demo should also avoid mocked runtime content entirely: live
+headlines, live debate turns, live referee verdicts, and live audio when
+enabled. If a provider fails, surface the failure honestly instead of swapping
+in canned transcript text.

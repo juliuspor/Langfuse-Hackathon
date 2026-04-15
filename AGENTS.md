@@ -9,6 +9,10 @@ Lanz & Precht Daily Briefing Agent is a focused German-language web application
 that turns one daily news topic into a short live-style debate between two AI
 personas, with optional spoken audio.
 
+The intended demo path is fully live. Do not present mocked runtime headlines,
+mock transcript turns, mock referee verdicts, or mock audio as if they were
+real outputs.
+
 This is a hackathon project. Keep it small, demoable, and emotionally engaging.
 The project is expected to be graded on:
 
@@ -74,7 +78,7 @@ cd frontend && npm run build
 
 # API smoke checks
 curl -s http://127.0.0.1:5000/health
-curl -N "http://127.0.0.1:5000/api/debate/live?topic=Soll%20Deutschland%20ein%20Tempolimit%20einfuehren%3F&turns=4&language=de&include_audio=false"
+curl -N "http://127.0.0.1:5000/api/debate/live?topic=Soll%20Deutschland%20ein%20Tempolimit%20einfuehren%3F&turns=12&language=de&include_audio=false"
 ```
 
 ## Testing in Development
@@ -165,7 +169,7 @@ Always optimize for one crisp path:
 1. Start the Flask app.
 2. Open `http://127.0.0.1:5000/`.
 3. Pick one headline from the React news feed.
-4. Generate a short debate of 4 turns.
+4. Generate a 12-turn debate.
 5. Confirm the UI streams turns in order, the Fakten-Schiri verdict card updates
    after each turn, and the player remains responsive.
 6. If audio is enabled, confirm each turn has playable audio and failures show
@@ -186,7 +190,7 @@ than depending on real API keys.
 If live streaming appears stuck, test the SSE endpoint directly:
 
 ```bash
-curl -N "http://127.0.0.1:5000/api/debate/live?topic=Test&turns=4&language=de&include_audio=false"
+curl -N "http://127.0.0.1:5000/api/debate/live?topic=Test&turns=12&language=de&include_audio=false"
 ```
 
 The current happy-path event order is:
@@ -262,7 +266,7 @@ git checkout -b codex/short-task-name
 
 - The app should make one topic feel alive quickly.
 - Support German debate behavior only (`language=de`).
-- Favor short, punchy turns over long essays.
+- Favor short, punchy turns over long essays, even across the 12-turn default.
 - Protect the live-style illusion: show progress, stream turns, and avoid blank
   waiting states.
 - Runtime demo behavior must stay grounded in real inputs. Do not ship mock news
