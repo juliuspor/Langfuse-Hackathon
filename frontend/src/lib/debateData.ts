@@ -17,6 +17,16 @@ export interface DebateTurn {
   speaker: "agent_1" | "agent_2";
   text: string;
   audio_url?: string;
+  referee?: RefereeVerdict | null;
+}
+
+export interface RefereeVerdict {
+  turn_index: number;
+  speaker: "agent_1" | "agent_2";
+  verdict: "green" | "yellow" | "red" | "offside";
+  badge: string;
+  reason: string;
+  confidence: number;
 }
 
 export const SPEAKERS = {

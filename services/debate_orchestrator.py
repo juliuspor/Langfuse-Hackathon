@@ -7,6 +7,7 @@ from typing import Any, Iterator
 
 from models.storage import Storage
 from services.elevenlabs_client import ElevenLabsClient
+from services.fact_referee import FactRefereeService
 from services.news_context import NewsContextService
 from utils.config import Settings
 from utils.errors import ExternalServiceError, NotFoundError
@@ -34,11 +35,13 @@ class DebateOrchestrator:
         storage: Storage,
         elevenlabs_client: ElevenLabsClient,
         news_context_service: NewsContextService,
+        fact_referee_service: FactRefereeService,
     ) -> None:
         self.settings = settings
         self.storage = storage
         self.elevenlabs_client = elevenlabs_client
         self.news_context_service = news_context_service
+        self.fact_referee_service = fact_referee_service
 
     def start_debate(
         self,
@@ -83,11 +86,20 @@ class DebateOrchestrator:
         warnings: list[str] = []
         provider_character_count_total = 0
         provider_character_cost_total = 0.0
+        referee_input_tokens_total = 0
+        referee_output_tokens_total = 0
+        referee_total_tokens_total = 0
+        referee_failure_reason: str | None = None
         meta: dict[str, Any] = {
             "request_id": request_id,
             "news_context": news_context,
             "include_audio": include_audio,
             "warnings": warnings,
+            "fact_referee": {
+                "enabled": self.fact_referee_service.enabled,
+                "model": self.settings.fact_referee_model,
+                "judged_turns": 0,
+            },
         }
 
         self.storage.create_conversation(
@@ -104,6 +116,7 @@ class DebateOrchestrator:
                 "topic": topic,
                 "status": "running",
                 "news_context": news_context,
+                "fact_referee_enabled": self.fact_referee_service.enabled,
             },
         }
 
@@ -198,9 +211,61 @@ class DebateOrchestrator:
                             "speaker": speaker,
                             "text": turn_text,
                             "audio_path": audio_path,
+                            "raw_meta": turn_meta,
                         },
                     ),
                 }
+
+                if self.fact_referee_service.enabled and referee_failure_reason is None:
+                    try:
+                        referee = self.fact_referee_service.judge_turn(
+                            topic=topic,
+                            speaker=speaker,
+                            turn_index=turn_index,
+                            current_turn=turn_text,
+                            previous_turn=transcript[-2]["text"]
+                            if len(transcript) > 1
+                            else None,
+                            news_context=news_context,
+                        )
+                        turn_meta["referee"] = self._build_referee_verdict(
+                            turn_index=turn_index,
+                            speaker=speaker,
+                            referee=referee,
+                        )
+                        turn_meta["referee_provider"] = referee.get("provider")
+                        turn_meta["referee_latency_ms"] = referee["latency_ms"]
+                        referee_provider = referee.get("provider", {})
+                        referee_input_tokens_total += int(
+                            referee_provider.get("input_tokens") or 0
+                        )
+                        referee_output_tokens_total += int(
+                            referee_provider.get("output_tokens") or 0
+                        )
+                        referee_total_tokens_total += int(
+                            referee_provider.get("total_tokens") or 0
+                        )
+
+                        self.storage.add_turn(
+                            conversation_id=conversation_id,
+                            turn_index=turn_index,
+                            speaker=speaker,
+                            text=turn_text,
+                            audio_path=audio_path,
+                            latency_ms=generation["latency_ms"],
+                            request_id=request_id,
+                            raw_meta=turn_meta,
+                        )
+                        yield {
+                            "event": "referee",
+                            "data": turn_meta["referee"],
+                        }
+                    except ExternalServiceError as exc:
+                        referee_failure_reason = str(exc)
+                        warnings.append(
+                            "Fakten-Schiri ausgefallen; Debatte laeuft ohne weitere "
+                            "Verifikationskarten weiter."
+                        )
 
                 if include_audio:
                     voice_id = profile.voice_id
@@ -257,6 +322,7 @@ class DebateOrchestrator:
                                         "speaker": speaker,
                                         "text": turn_text,
                                         "audio_path": audio_path,
+                                        "raw_meta": turn_meta,
                                     },
                                 ),
                             }
@@ -265,6 +331,16 @@ class DebateOrchestrator:
                                 f"Audio generation failed for turn {turn_index}: {str(exc)}"
                             )
         except ExternalServiceError as exc:
+            stored = self.storage.get_conversation(conversation_id)
+            judged_turns = 0
+            referee_summary = self._empty_referee_summary()
+            if stored is not None:
+                judged_turns = sum(
+                    1
+                    for turn in stored["turns"]
+                    if (turn.get("raw_meta") or {}).get("referee")
+                )
+                referee_summary = self._count_referee_verdicts(stored["turns"])
             meta.update(
                 {
                     "status": "failed",
@@ -274,6 +350,17 @@ class DebateOrchestrator:
                         "character_count_total": provider_character_count_total,
                         "character_cost_total": round(provider_character_cost_total, 6),
                     },
+                    "fact_referee": {
+                        "enabled": self.fact_referee_service.enabled,
+                        "model": self.settings.fact_referee_model,
+                        "judged_turns": judged_turns,
+                        "usage": {
+                            "input_tokens_total": referee_input_tokens_total,
+                            "output_tokens_total": referee_output_tokens_total,
+                            "total_tokens_total": referee_total_tokens_total,
+                        },
+                        "summary": referee_summary,
+                    },
                 }
             )
             self.storage.update_conversation(
@@ -282,6 +369,16 @@ class DebateOrchestrator:
             raise
 
         status = "completed_with_warnings" if warnings else "completed"
+        stored = self.storage.get_conversation(conversation_id)
+        judged_turns = 0
+        referee_summary = self._empty_referee_summary()
+        if stored is not None:
+            judged_turns = sum(
+                1
+                for turn in stored["turns"]
+                if (turn.get("raw_meta") or {}).get("referee")
+            )
+            referee_summary = self._count_referee_verdicts(stored["turns"])
         meta.update(
             {
                 "status": status,
@@ -289,6 +386,17 @@ class DebateOrchestrator:
                 "provider_usage": {
                     "character_count_total": provider_character_count_total,
                     "character_cost_total": round(provider_character_cost_total, 6),
+                },
+                "fact_referee": {
+                    "enabled": self.fact_referee_service.enabled,
+                    "model": self.settings.fact_referee_model,
+                    "judged_turns": judged_turns,
+                    "usage": {
+                        "input_tokens_total": referee_input_tokens_total,
+                        "output_tokens_total": referee_output_tokens_total,
+                        "total_tokens_total": referee_total_tokens_total,
+                    },
+                    "summary": referee_summary,
                 },
             }
         )
@@ -492,9 +600,57 @@ class DebateOrchestrator:
             audio_url = (
                 f"/api/debate/{conversation_id}/audio/{turn['turn_index']}.mp3"
             )
+        referee = None
+        raw_meta = turn.get("raw_meta") or {}
+        if isinstance(raw_meta, dict):
+            referee = raw_meta.get("referee")
         return {
             "turn_index": turn["turn_index"],
             "speaker": turn["speaker"],
             "text": turn["text"],
             "audio_url": audio_url,
+            "referee": referee,
         }
+
+    @staticmethod
+    def _build_referee_verdict(
+        *, turn_index: int, speaker: str, referee: dict[str, Any]
+    ) -> dict[str, Any]:
+        return {
+            "turn_index": turn_index,
+            "speaker": speaker,
+            "verdict": referee["verdict"],
+            "badge": referee["badge"],
+            "reason": referee["reason"],
+            "confidence": referee["confidence"],
+        }
+
+    @staticmethod
+    def _empty_referee_summary() -> dict[str, dict[str, int]]:
+        summary: dict[str, dict[str, int]] = {}
+        for speaker in SPEAKER_ORDER:
+            summary[speaker] = {
+                "green": 0,
+                "yellow": 0,
+                "red": 0,
+                "offside": 0,
+            }
+        return summary
+
+    @classmethod
+    def _count_referee_verdicts(
+        cls, turns: list[dict[str, Any]]
+    ) -> dict[str, dict[str, int]]:
+        summary = cls._empty_referee_summary()
+        for turn in turns:
+            raw_meta = turn.get("raw_meta") or {}
+            if not isinstance(raw_meta, dict):
+                continue
+            referee = raw_meta.get("referee") or {}
+            if not isinstance(referee, dict):
+                continue
+            speaker = turn.get("speaker")
+            verdict = referee.get("verdict")
+            if speaker in summary and verdict in summary[speaker]:
+                summary[speaker][verdict] += 1
+        return summary

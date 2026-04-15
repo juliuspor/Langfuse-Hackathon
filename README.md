@@ -30,6 +30,7 @@ just enough theatrical friction to make the topic stick.
 - Starts a debate for a topic with strict turn alternation (`agent_1` -> `agent_2` -> ...).
 - Supports German only (`language=de`).
 - Streams each generated text turn to the browser before slower audio work.
+- Optionally lets a "Fakten-Schiri" judge each turn with a public source-grounded verdict card.
 - Serves a React/Vite news-feed and podcast-style UI from Flask.
 - Loads German headlines from GNews through the Flask backend.
 - Plays each generated MP3 turn in sequence in the web UI when audio is enabled.
@@ -113,6 +114,9 @@ Optional tuning:
 - `TTS_MODEL_ID` (default: `eleven_flash_v2_5`)
 - `TTS_OUTPUT_FORMAT` (default: `mp3_44100_128`)
 - `TTS_OPTIMIZE_STREAMING_LATENCY` (0-4, default: `0`)
+- `OPENAI_API_KEY` (optional, enables Fakten-Schiri referee cards)
+- `FACT_REFEREE_MODEL` (default: `gpt-5-mini`)
+- `FACT_REFEREE_ENABLED` (default: `false`)
 - `REQUEST_TIMEOUT_SECONDS` (default: `45`)
 - `LOG_LEVEL` (default: `INFO`)
 

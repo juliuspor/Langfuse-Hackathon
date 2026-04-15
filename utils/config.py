@@ -28,6 +28,9 @@ class Settings:
     tts_model_id: str
     tts_output_format: str
     tts_optimize_streaming_latency: int | None
+    openai_api_key: str | None
+    fact_referee_model: str
+    fact_referee_enabled: bool
     max_turns: int
     log_level: str
 
@@ -66,6 +69,19 @@ def _float_env(name: str, default: float) -> float:
         raise ConfigurationError(
             f"Environment variable {name} must be a float"
         ) from exc
+
+
+def _bool_env(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return default
+
+    normalized = raw.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ConfigurationError(f"Environment variable {name} must be a boolean")
 
 
 def load_settings() -> Settings:
@@ -129,6 +145,10 @@ def load_settings() -> Settings:
         tts_model_id=os.getenv("TTS_MODEL_ID", "eleven_flash_v2_5"),
         tts_output_format=os.getenv("TTS_OUTPUT_FORMAT", "mp3_44100_128"),
         tts_optimize_streaming_latency=optimize_streaming_latency,
+        openai_api_key=_optional_env("OPENAI_API_KEY"),
+        fact_referee_model=os.getenv("FACT_REFEREE_MODEL", "gpt-5-mini").strip()
+        or "gpt-5-mini",
+        fact_referee_enabled=_bool_env("FACT_REFEREE_ENABLED", False),
         max_turns=max_turns,
         log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
     )

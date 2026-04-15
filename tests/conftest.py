@@ -72,6 +72,59 @@ class FakeElevenLabsClient:
         }
 
 
+class FakeFactRefereeService:
+    def __init__(self) -> None:
+        self.enabled = True
+        self.calls: list[dict] = []
+        self.fail_on_turn: int | None = None
+
+    def judge_turn(
+        self,
+        *,
+        topic: str,
+        speaker: str,
+        turn_index: int,
+        current_turn: str,
+        previous_turn: str | None,
+        news_context: dict[str, str],
+    ) -> dict:
+        self.calls.append(
+            {
+                "topic": topic,
+                "speaker": speaker,
+                "turn_index": turn_index,
+                "current_turn": current_turn,
+                "previous_turn": previous_turn,
+                "news_context": news_context,
+            }
+        )
+        if self.fail_on_turn == turn_index:
+            raise ExternalServiceError("synthetic referee failure")
+
+        verdicts = ["green", "yellow", "offside", "red"]
+        badges = {
+            "green": "Gruen",
+            "yellow": "Gelb",
+            "red": "Rot",
+            "offside": "Abseits",
+        }
+        verdict = verdicts[(turn_index - 1) % len(verdicts)]
+        return {
+            "verdict": verdict,
+            "badge": badges[verdict],
+            "reason": f"{speaker} bekommt {badges[verdict]} fuer Turn {turn_index}.",
+            "confidence": 80,
+            "latency_ms": 9.0,
+            "provider": {
+                "request_id": f"req-ref-{turn_index}",
+                "model": "gpt-5-mini",
+                "input_tokens": 10,
+                "output_tokens": 4,
+                "total_tokens": 14,
+            },
+        }
+
+
 @pytest.fixture
 def settings(tmp_path: Path) -> Settings:
     return Settings(
@@ -92,6 +145,9 @@ def settings(tmp_path: Path) -> Settings:
         tts_model_id="eleven_flash_v2_5",
         tts_output_format="mp3_44100_128",
         tts_optimize_streaming_latency=0,
+        openai_api_key="test-openai-key",
+        fact_referee_model="gpt-5-mini",
+        fact_referee_enabled=True,
         max_turns=20,
         log_level="INFO",
     )
@@ -110,20 +166,32 @@ def fake_elevenlabs_client() -> FakeElevenLabsClient:
 
 
 @pytest.fixture
+def fake_fact_referee_service() -> FakeFactRefereeService:
+    return FakeFactRefereeService()
+
+
+@pytest.fixture
 def orchestrator(
-    settings: Settings, storage: Storage, fake_elevenlabs_client: FakeElevenLabsClient
+    settings: Settings,
+    storage: Storage,
+    fake_elevenlabs_client: FakeElevenLabsClient,
+    fake_fact_referee_service: FakeFactRefereeService,
 ) -> DebateOrchestrator:
     return DebateOrchestrator(
         settings=settings,
         storage=storage,
         elevenlabs_client=fake_elevenlabs_client,
         news_context_service=NewsContextService(),
+        fact_referee_service=fake_fact_referee_service,
     )
 
 
 @pytest.fixture
 def app_client(
-    settings: Settings, storage: Storage, fake_elevenlabs_client: FakeElevenLabsClient
+    settings: Settings,
+    storage: Storage,
+    fake_elevenlabs_client: FakeElevenLabsClient,
+    fake_fact_referee_service: FakeFactRefereeService,
 ):
     app = create_app(
         {
@@ -131,6 +199,7 @@ def app_client(
             "SETTINGS": settings,
             "STORAGE": storage,
             "ELEVENLABS_CLIENT": fake_elevenlabs_client,
+            "FACT_REFEREE_SERVICE": fake_fact_referee_service,
         }
     )
     with app.test_client() as client:

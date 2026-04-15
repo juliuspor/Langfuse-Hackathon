@@ -1,4 +1,8 @@
-import { DebateTurn, type NewsHeadline } from "./debateData";
+import {
+  DebateTurn,
+  type NewsHeadline,
+  type RefereeVerdict,
+} from "./debateData";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 export const DEFAULT_TURNS = 4;
@@ -12,6 +16,11 @@ export interface DebateSummary {
     warnings?: string[];
     total_turns?: number;
     news_context?: unknown;
+    fact_referee?: {
+      enabled?: boolean;
+      judged_turns?: number;
+      [key: string]: unknown;
+    };
     [key: string]: unknown;
   };
 }
@@ -23,8 +32,10 @@ export interface LiveDebateCallbacks {
     topic: string;
     status: string;
     news_context?: unknown;
+    fact_referee_enabled?: boolean;
   }) => void;
   onTurn?: (turn: DebateTurn) => void;
+  onReferee?: (verdict: RefereeVerdict) => void;
   onAudio?: (turn: DebateTurn) => void;
   onCompleted?: (data: DebateSummary) => void;
   onError?: (error: string) => void;
@@ -108,6 +119,10 @@ export function startLiveDebate(
     callbacks.onTurn?.(normalizeTurn(JSON.parse(e.data)));
   });
 
+  es.addEventListener("referee", (e) => {
+    callbacks.onReferee?.(JSON.parse(e.data));
+  });
+
   es.addEventListener("audio", (e) => {
     callbacks.onAudio?.(normalizeTurn(JSON.parse(e.data)));
   });
@@ -175,6 +190,7 @@ function normalizeTurn(turn: DebateTurn): DebateTurn {
   return {
     ...turn,
     audio_url: normalizeUrl(turn.audio_url),
+    referee: turn.referee || undefined,
   };
 }
 

@@ -14,6 +14,7 @@ from routes.debate import debate_bp
 from routes.news import news_bp
 from services.debate_orchestrator import DebateOrchestrator
 from services.elevenlabs_client import ElevenLabsClient
+from services.fact_referee import FactRefereeService
 from services.news_context import NewsContextService
 from services.news_feed import NewsFeedService
 from utils.config import Settings, load_settings
@@ -40,6 +41,9 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     news_context_service = (
         test_config.get("NEWS_CONTEXT_SERVICE") or NewsContextService()
     )
+    fact_referee_service = (
+        test_config.get("FACT_REFEREE_SERVICE") or FactRefereeService(settings)
+    )
     news_feed_service = test_config.get("NEWS_FEED_SERVICE") or NewsFeedService(
         settings
     )
@@ -48,12 +52,14 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         storage=storage,
         elevenlabs_client=elevenlabs_client,
         news_context_service=news_context_service,
+        fact_referee_service=fact_referee_service,
     )
 
     app.extensions["settings"] = settings
     app.extensions["storage"] = storage
     app.extensions["debate_orchestrator"] = debate_orchestrator
     app.extensions["news_feed_service"] = news_feed_service
+    app.extensions["fact_referee_service"] = fact_referee_service
 
     @app.before_request
     def attach_request_metadata() -> None:

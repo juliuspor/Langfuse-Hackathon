@@ -47,6 +47,8 @@ def test_generated_text_is_returned_without_post_processing(
 
     assert result["turns"][0]["text"] == "Tem polimit [pause]."
     assert result["turns"][1]["text"] == "Sauberer Precht-Text."
+    assert result["turns"][0]["referee"]["verdict"] == "green"
+    assert result["turns"][1]["referee"]["verdict"] == "yellow"
 
 
 def test_transcript_persistence(orchestrator, storage) -> None:
@@ -63,6 +65,7 @@ def test_transcript_persistence(orchestrator, storage) -> None:
     assert stored["status"] == "completed"
     assert stored["topic"] == "Digitalisierung"
     assert len(stored["turns"]) == 3
+    assert stored["turns"][0]["raw_meta"]["referee"]["badge"] == "Gruen"
 
 
 def test_article_context_is_used_for_news_context(orchestrator) -> None:
@@ -103,10 +106,11 @@ def test_tts_failure_returns_warning_status(
     assert result["turns"][0]["audio_url"] is not None
     assert result["turns"][1]["audio_url"] is None
     assert result["meta"]["warnings"]
+    assert result["meta"]["fact_referee"]["judged_turns"] == 4
 
 
 def test_audio_uses_agent_voice_when_env_voice_ids_are_missing(
-    settings, storage, fake_elevenlabs_client
+    settings, storage, fake_elevenlabs_client, fake_fact_referee_service
 ) -> None:
     settings_without_voice_overrides = replace(
         settings,
@@ -122,6 +126,7 @@ def test_audio_uses_agent_voice_when_env_voice_ids_are_missing(
         storage=storage,
         elevenlabs_client=fake_elevenlabs_client,
         news_context_service=NewsContextService(),
+        fact_referee_service=fake_fact_referee_service,
     )
 
     result = orchestrator.start_debate(
@@ -138,3 +143,23 @@ def test_audio_uses_agent_voice_when_env_voice_ids_are_missing(
         settings.elevenlabs_agent_2_id,
     ]
     assert fake_elevenlabs_client.tts_calls == ["agent_voice_1", "agent_voice_2"]
+
+
+def test_referee_failure_returns_warning_status(
+    orchestrator, fake_fact_referee_service
+) -> None:
+    fake_fact_referee_service.fail_on_turn = 2
+
+    result = orchestrator.start_debate(
+        topic="Haushaltspolitik",
+        turns=4,
+        language="de",
+        include_audio=False,
+        request_id="req-ref-warning",
+    )
+
+    assert result["status"] == "completed_with_warnings"
+    assert "Fakten-Schiri" in result["meta"]["warnings"][-1]
+    assert result["turns"][0]["referee"]["verdict"] == "green"
+    assert result["turns"][1]["referee"] is None
+    assert result["turns"][2]["referee"] is None

@@ -7,7 +7,12 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULT_TURNS, startLiveDebate } from "@/lib/api";
-import { SPEAKERS, type DebateTurn, type NewsHeadline } from "@/lib/debateData";
+import {
+  SPEAKERS,
+  type DebateTurn,
+  type NewsHeadline,
+  type RefereeVerdict,
+} from "@/lib/debateData";
 import WaveformAnimation from "./WaveformAnimation";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +22,55 @@ interface LivePodcastProps {
 }
 
 type DebateStatus = "connecting" | "streaming" | "completed" | "error";
+
+const REFEREE_STYLES: Record<
+  RefereeVerdict["verdict"],
+  { badgeClass: string; noteClass: string }
+> = {
+  green: {
+    badgeClass: "border-emerald-400/30 bg-emerald-500/10 text-emerald-200",
+    noteClass: "text-emerald-100",
+  },
+  yellow: {
+    badgeClass: "border-amber-400/30 bg-amber-500/10 text-amber-100",
+    noteClass: "text-amber-50",
+  },
+  red: {
+    badgeClass: "border-rose-400/30 bg-rose-500/10 text-rose-100",
+    noteClass: "text-rose-50",
+  },
+  offside: {
+    badgeClass: "border-sky-400/30 bg-sky-500/10 text-sky-100",
+    noteClass: "text-sky-50",
+  },
+};
+
+function getRefereeStyles(verdict?: RefereeVerdict["verdict"]) {
+  if (!verdict) {
+    return {
+      badgeClass: "border-border bg-secondary text-muted-foreground",
+      noteClass: "text-foreground",
+    };
+  }
+  return REFEREE_STYLES[verdict];
+}
+
+function buildRefereeScore(turns: DebateTurn[]) {
+  const score = {
+    agent_1: { yellow: 0, offside: 0, red: 0 },
+    agent_2: { yellow: 0, offside: 0, red: 0 },
+  };
+
+  turns.forEach((turn) => {
+    const verdict = turn.referee?.verdict;
+    if (!verdict || verdict === "green") {
+      return;
+    }
+    score[turn.speaker][verdict] += 1;
+  });
+
+  return `${SPEAKERS.agent_1.shortName} ${score.agent_1.yellow} Gelb, ${score.agent_1.offside} Abseits, ${score.agent_1.red} Rot · ${SPEAKERS.agent_2.shortName} ${score.agent_2.yellow} Gelb, ${score.agent_2.offside} Abseits, ${score.agent_2.red} Rot`;
+}
 
 function ElapsedTime({ isRunning }: { isRunning: boolean }) {
   const [sec, setSec] = useState(0);
@@ -45,6 +99,9 @@ export default function LivePodcast({ headline, onBack }: LivePodcastProps) {
   const [showTranscript, setShowTranscript] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [factRefereeEnabled, setFactRefereeEnabled] = useState(false);
+  const [latestRefereeVerdict, setLatestRefereeVerdict] =
+    useState<RefereeVerdict | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const cancelRef = useRef<() => void>();
@@ -179,12 +236,15 @@ export default function LivePodcast({ headline, onBack }: LivePodcastProps) {
     setConversationId(null);
     setWarnings([]);
     setErrorMessage(null);
+    setFactRefereeEnabled(false);
+    setLatestRefereeVerdict(null);
 
     const cancel = startLiveDebate(headline.headline, DEFAULT_TURNS, true, headline, {
       onConnected: () => setStatus("connecting"),
       onConversation: (conversation) => {
         setConversationId(conversation.conversation_id);
         setStatus("streaming");
+        setFactRefereeEnabled(Boolean(conversation.fact_referee_enabled));
       },
       onTurn: (turn) => {
         setTurns((prev) => [...prev, turn]);
@@ -192,6 +252,16 @@ export default function LivePodcast({ headline, onBack }: LivePodcastProps) {
         if (turn.audio_url) {
           enqueueAudio(turn);
         }
+      },
+      onReferee: (verdict) => {
+        setLatestRefereeVerdict(verdict);
+        setTurns((prev) =>
+          prev.map((item) =>
+            item.turn_index === verdict.turn_index
+              ? { ...item, referee: verdict }
+              : item
+          )
+        );
       },
       onAudio: (turn) => {
         setTurns((prev) => {
@@ -210,8 +280,14 @@ export default function LivePodcast({ headline, onBack }: LivePodcastProps) {
       onCompleted: (debate) => {
         setStatus("completed");
         setWarnings(debate.meta?.warnings ?? []);
+        setFactRefereeEnabled(Boolean(debate.meta?.fact_referee?.enabled));
         if (debate.turns?.length) {
           setTurns(debate.turns);
+          const latestVerdict =
+            [...debate.turns]
+              .reverse()
+              .find((turn) => turn.referee)?.referee ?? null;
+          setLatestRefereeVerdict(latestVerdict);
           debate.turns.forEach(enqueueAudio);
         }
         if (!currentAudioTurnRef.current && audioQueueRef.current.length === 0) {
@@ -249,6 +325,8 @@ export default function LivePodcast({ headline, onBack }: LivePodcastProps) {
   const s2 = SPEAKERS.agent_2;
   const currentSpeaker = activeSpeaker ? SPEAKERS[activeSpeaker] : null;
   const latestTurn = turns[turns.length - 1] ?? null;
+  const latestRefereeStyles = getRefereeStyles(latestRefereeVerdict?.verdict);
+  const refereeScore = buildRefereeScore(turns);
   const progressWidth = `${Math.min(
     100,
     status === "completed" ? 100 : Math.max(5, (turns.length / DEFAULT_TURNS) * 100)
@@ -422,6 +500,52 @@ export default function LivePodcast({ headline, onBack }: LivePodcastProps) {
           </div>
         </div>
 
+        {factRefereeEnabled && (
+          <div className="w-full max-w-[320px] mt-4 rounded-xl border border-border bg-card/70 px-4 py-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/80">
+                  Fakten-Schiri
+                </p>
+                <p
+                  className={cn(
+                    "mt-2 text-sm leading-relaxed",
+                    latestRefereeStyles.noteClass
+                  )}
+                >
+                  {latestRefereeVerdict
+                    ? latestRefereeVerdict.reason
+                    : "Prueft noch den ersten Schlagabtausch."}
+                </p>
+              </div>
+              <span
+                className={cn(
+                  "shrink-0 rounded-full border px-2 py-1 text-[10px] font-semibold",
+                  latestRefereeStyles.badgeClass
+                )}
+              >
+                {latestRefereeVerdict?.badge || "Wartet"}
+              </span>
+            </div>
+
+            {latestRefereeVerdict && (
+              <div className="mt-2 flex items-center justify-between gap-3 text-[10px] text-muted-foreground">
+                <span>
+                  {SPEAKERS[latestRefereeVerdict.speaker].shortName} · Turn{" "}
+                  {latestRefereeVerdict.turn_index}
+                </span>
+                <span>{latestRefereeVerdict.confidence}% sicher</span>
+              </div>
+            )}
+
+            {status === "completed" && (
+              <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
+                Endstand: {refereeScore}
+              </p>
+            )}
+          </div>
+        )}
+
         {latestTurn && (
           <motion.div
             key={latestTurn.turn_index}
@@ -524,6 +648,23 @@ export default function LivePodcast({ headline, onBack }: LivePodcastProps) {
                       >
                         {turn.text}
                       </div>
+                      {turn.referee && (
+                        <div
+                          className={cn(
+                            "mt-1.5 flex",
+                            isLeft ? "justify-start" : "justify-end"
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "rounded-full border px-2 py-0.5 text-[9px] font-semibold",
+                              getRefereeStyles(turn.referee.verdict).badgeClass
+                            )}
+                          >
+                            {turn.referee.badge}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 );
