@@ -1,6 +1,15 @@
 # Lanz & Precht Frontend
 
-React/Vite frontend for the Flask demo app.
+React/Vite frontend for the Flask app.
+
+The app loads headlines from Flask's `/api/news/headlines` endpoint and starts
+4-turn debates through `/api/debate/live`. Provider secrets stay in the backend
+environment.
+
+The frontend is staged like a morning podcast player, not a generic dashboard:
+choose one headline, start the live debate, and watch the two personas take
+turns while audio plays when available. The app expects the Flask backend to
+provide headlines and stream debate turns.
 
 ## Commands
 
@@ -20,4 +29,4 @@ By default the app calls the Flask API on the same origin. Set
 backend origin. The Vite dev server proxies `/api` and `/health` to
 `http://127.0.0.1:5000`.
 
-The news feed is intentionally mocked in `src/lib/mockData.ts`.
+`src/lib/debateData.ts` contains speaker metadata and shared UI types.

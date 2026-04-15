@@ -1,7 +1,6 @@
-import { DebateTurn, getMockTurnsForTopic, type NewsHeadline } from "./mockData";
+import { DebateTurn, type NewsHeadline } from "./debateData";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
-const USE_MOCK = import.meta.env.VITE_USE_MOCK_API === "true";
 export const DEFAULT_TURNS = 4;
 
 export interface DebateSummary {
@@ -86,10 +85,6 @@ export function startLiveDebate(
   headline: NewsHeadline | null = null,
   callbacks: LiveDebateCallbacks = {}
 ): () => void {
-  if (USE_MOCK) {
-    return startMockDebate(topic, turns, callbacks);
-  }
-
   const params = new URLSearchParams({
     topic,
     turns: String(turns),
@@ -145,50 +140,6 @@ function addArticleParams(params: URLSearchParams, headline: NewsHeadline | null
   if (headline.published_at) {
     params.set("article_published_at", headline.published_at);
   }
-}
-
-function startMockDebate(
-  _topic: string,
-  turns: number,
-  callbacks: LiveDebateCallbacks
-): () => void {
-  let cancelled = false;
-  const convId = crypto.randomUUID();
-
-  const allTurns: DebateTurn[] = getMockTurnsForTopic("1").slice(0, turns);
-
-  (async () => {
-    await delay(500);
-    if (cancelled) return;
-    callbacks.onConnected?.({ status: "connected" });
-    callbacks.onConversation?.({
-      conversation_id: convId,
-      topic: _topic,
-      status: "running",
-    });
-
-    for (let i = 0; i < allTurns.length; i++) {
-      await delay(1500 + Math.random() * 2000);
-      if (cancelled) return;
-      callbacks.onTurn?.(allTurns[i]);
-    }
-
-    await delay(500);
-    if (cancelled) return;
-    callbacks.onCompleted?.({
-      conversation_id: convId,
-      topic: _topic,
-      status: "completed",
-      turns: allTurns,
-      meta: { total_turns: allTurns.length, warnings: [] },
-    });
-  })();
-
-  return () => { cancelled = true; };
-}
-
-function delay(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
 }
 
 export function getAudioUrl(conversationId: string, turnIndex: number): string {

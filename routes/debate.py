@@ -36,6 +36,8 @@ def start_debate() -> Any:
 
 @debate_bp.get("/api/debate/live")
 def live_debate() -> Any:
+    # SSE keeps the hackathon demo visibly alive: each agent turn reaches the UI
+    # as soon as it is ready instead of hiding the debate behind one long wait.
     settings = current_app.extensions["settings"]
     validated = _validate_live_args(request.args, max_turns=settings.max_turns)
     orchestrator = current_app.extensions["debate_orchestrator"]

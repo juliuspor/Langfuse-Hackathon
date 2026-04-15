@@ -5,17 +5,23 @@ codebase.
 
 ## Project Overview
 
-Lanz & Precht Daily Briefing Agent is a simple German-language web MVP that
-turns one daily news topic into a short live-style debate between two AI
-personas, with optional user call-in.
+Lanz & Precht Daily Briefing Agent is a focused German-language web application
+that turns one daily news topic into a short live-style debate between two AI
+personas, with optional spoken audio.
 
 This is a hackathon project. Keep it small, demoable, and emotionally engaging.
 The project is expected to be graded on:
 
 - Whether it actually works
 - Whether it is fun
+- Whether it is agentic / innovative
 
 When in doubt, prioritize a strong end-to-end demo over broad product features.
+
+The product story matters: this is a daily morning-news ritual for someone who
+wants the energy of a favorite weekly German debate podcast while making coffee
+or breakfast. Keep that personal, slightly funny "daily podcast coping
+mechanism" alive in docs, UI copy, and demo flow.
 
 ## Project Structure
 
@@ -23,20 +29,20 @@ When in doubt, prioritize a strong end-to-end demo over broad product features.
 | ------------------------------- | ---------------------------------------- | ----------- |
 | `app.py`                        | Flask app factory, middleware, errors    | `README.md` |
 | `routes/debate.py`              | Debate API endpoints and validation      | -           |
-| `routes/news.py`                | Optional headlines API endpoint          | -           |
+| `routes/news.py`                | Headlines API endpoint                   | -           |
 | `services/debate_orchestrator.py` | Debate flow, turn order, storage writes | -           |
 | `services/elevenlabs_client.py` | ElevenLabs agent and TTS client          | -           |
-| `services/news_context.py`      | Mock neutral news context generation     | -           |
-| `services/news_feed.py`         | Optional external headline provider      | -           |
+| `services/news_context.py`      | Article-grounded/fallback news context   | -           |
+| `services/news_feed.py`         | External headline provider               | -           |
 | `models/storage.py`             | Local persistence for conversations      | -           |
 | `utils/config.py`               | Environment loading and settings         | -           |
 | `utils/errors.py`               | App-specific exception types             | -           |
 | `frontend/`                     | React/Vite source for the browser UI     | `frontend/README.md` |
-| `frontend/src/lib/mockData.ts`  | Mocked news feed data                    | -           |
+| `frontend/src/lib/debateData.ts` | Speaker and debate UI metadata          | -           |
 | `frontend/src/lib/api.ts`       | Browser API and SSE integration          | -           |
 | `static/frontend/`              | Generated frontend build served by Flask | -           |
 | `static/`                       | Flask static assets                      | -           |
-| `tests/`                        | Pytest coverage for MVP behavior         | -           |
+| `tests/`                        | Pytest coverage for app behavior         | -           |
 | `data/`                         | Local generated debate/audio data        | -           |
 
 Read `README.md` before changing the run flow, environment variables, API
@@ -119,10 +125,11 @@ Required for live ElevenLabs calls:
 - `ELEVENLABS_API_KEY`
 - `ELEVENLABS_AGENT_1_ID`
 - `ELEVENLABS_AGENT_2_ID`
+- `NEWS_API_KEY`
 
-The React news feed is mocked in `frontend/src/lib/mockData.ts` for the current
-demo. `NEWS_API_KEY` and related news provider settings are optional and only
-needed if someone explicitly works on the `/api/news/headlines` path.
+The React news feed calls Flask's `/api/news/headlines` endpoint, which uses the
+configured news provider. Keep provider credentials on the backend only; do not
+call news providers directly from browser code.
 
 Useful local overrides:
 
@@ -130,7 +137,7 @@ Useful local overrides:
 ELEVENLABS_VOICE_1_ID=voice_override_for_agent_1
 ELEVENLABS_VOICE_2_ID=voice_override_for_agent_2
 NEWS_PROVIDER=gnews
-NEWS_API_KEY=optional_key_for_live_headlines
+NEWS_API_KEY=local_news_provider_key
 NEWS_COUNTRY=de
 NEWS_LANGUAGE=de
 NEWS_CACHE_TTL_SECONDS=600
@@ -153,7 +160,7 @@ Always optimize for one crisp path:
 
 1. Start the Flask app.
 2. Open `http://127.0.0.1:5000/`.
-3. Pick one mocked headline from the React news feed.
+3. Pick one headline from the React news feed.
 4. Generate a short debate of 4 turns.
 5. Confirm the UI streams turns in order and remains responsive.
 6. If audio is enabled, confirm each turn has playable audio and failures show
@@ -177,8 +184,12 @@ If live streaming appears stuck, test the SSE endpoint directly:
 curl -N "http://127.0.0.1:5000/api/debate/live?topic=Test&turns=4&language=de&include_audio=false"
 ```
 
-If headline retrieval is being worked on, remember that the demo UI still uses
-mocked headlines unless the task explicitly asks to wire in `/api/news/headlines`.
+If headline retrieval fails, confirm `NEWS_API_KEY` is set and test the endpoint
+directly:
+
+```bash
+curl -s "http://127.0.0.1:5000/api/news/headlines?category=Schlagzeilen&limit=5"
+```
 
 If audio files cannot be served, verify the stored path is inside
 `AUDIO_STORAGE_DIR`. `routes/debate.py` intentionally rejects paths outside that
@@ -220,17 +231,20 @@ git checkout -b codex/short-task-name
 - Keep frontend code in `frontend/` mobile-friendly and demo-first.
 - Keep `static/frontend/` as generated build output; do not hand-edit built
   bundles unless explicitly debugging generated assets.
-- Keep the news feed mocked unless the user explicitly asks to enable live news.
+- Route headline retrieval through Flask; avoid exposing provider keys in the
+  React app.
 - Avoid adding dependencies unless they clearly improve the demo.
 
 ## Product Guidelines
 
-- The MVP should make one topic feel alive quickly.
+- The app should make one topic feel alive quickly.
 - Support German debate behavior only (`language=de`).
 - Favor short, punchy turns over long essays.
 - Protect the live-style illusion: show progress, stream turns, and avoid blank
   waiting states.
-- If a feature does not help the demo work or become more fun, defer it.
+- Preserve the judging story: actually works, fun, and agentic / innovative.
+- If a feature does not help the demo work, become more fun, or make the
+  agentic behavior clearer, defer it.
 
 ## Before Writing Code
 
@@ -242,7 +256,8 @@ git checkout -b codex/short-task-name
 - Check `models/storage.py` before changing persistence format.
 - Check `frontend/src/` before changing UI behavior.
 - Check `frontend/src/lib/api.ts` before changing browser/backend contracts.
-- Check `frontend/src/lib/mockData.ts` before changing the mocked news feed.
+- Check `frontend/src/lib/debateData.ts` before changing speaker metadata or
+  debate UI types.
 - Add or update tests for validation, orchestration, persistence, and regressions.
 - Keep success, error, and warning cases visible in the UI/API where relevant.
 
@@ -254,8 +269,8 @@ git checkout -b codex/short-task-name
 - Treat secret exposure, path traversal, unsafe file serving, and accidental
   external calls in tests as high-priority issues.
 - Check that validation failures return useful JSON errors.
-- Check that new features preserve the "actually works" and "fun" grading
-  criteria.
+- Check that new features preserve the "actually works", "fun", and
+  "agentic / innovative" grading criteria.
 - Do not spend review energy on style-only issues unless they hide a bug.
 
 ## Additional Documentation

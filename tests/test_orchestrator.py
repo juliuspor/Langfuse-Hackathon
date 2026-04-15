@@ -86,7 +86,7 @@ def test_article_context_is_used_for_news_context(orchestrator) -> None:
     assert "Die Koalition ringt" in news_context["context"]
 
 
-def test_mocked_tts_failure_returns_warning_status(
+def test_tts_failure_returns_warning_status(
     orchestrator, fake_elevenlabs_client
 ) -> None:
     fake_elevenlabs_client.fail_tts_on_turn = 2

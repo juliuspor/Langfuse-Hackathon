@@ -8,7 +8,7 @@ from typing import Any
 
 
 class Storage:
-    """Minimal JSON-file persistence for hackathon MVP."""
+    """Small JSON-file persistence for transcripts, metadata, and audio paths."""
 
     def __init__(self, db_path: Path) -> None:
         self.db_path = db_path

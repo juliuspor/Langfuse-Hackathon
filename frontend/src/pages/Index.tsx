@@ -4,7 +4,7 @@ import MorningWelcome from "@/components/MorningWelcome";
 import TopicPicker from "@/components/TopicPicker";
 import LoadingScreen from "@/components/LoadingScreen";
 import LivePodcast from "@/components/LivePodcast";
-import type { NewsHeadline } from "@/lib/mockData";
+import type { NewsHeadline } from "@/lib/debateData";
 
 type Screen = "welcome" | "topics" | "loading" | "podcast";
 

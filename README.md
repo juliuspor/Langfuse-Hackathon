@@ -1,7 +1,33 @@
 # Lanz & Precht Daily Briefing Agent
 
-Minimal German-language Flask + React web MVP for a live-style
-agent-to-agent debate flow using ElevenLabs agents and TTS.
+Focused German-language Flask + React web application for a live-style
+agent-to-agent news debate flow using ElevenLabs agents and TTS.
+
+## Why this exists
+
+This project came from a real morning routine: making coffee or breakfast while
+listening to the news. The reference podcast has exactly the thoughtful,
+slightly theatrical German debate energy that makes one topic feel alive, but it
+only releases weekly.
+
+This app is the daily version of that ritual. Pick one headline, let two AI
+personas argue it out, and get a short live-style podcast briefing while the
+coffee is still brewing. It is useful, and it is also a funny little coping
+mechanism for wanting that podcast energy every morning.
+
+## Hackathon Judging North Star
+
+This project is intentionally small and demoable, but it is a working
+end-to-end application. It is built to be judged on three things:
+
+- Actually works: Flask serves the React app, fetches headlines, streams debate
+  turns over SSE, persists transcripts, and optionally serves generated MP3
+  audio per turn.
+- Fun: the experience feels like a live morning podcast, not a static news
+  summary or chatbot answer.
+- Agentic / innovative: two AI personas take turns, react to each other's last
+  point, share article-grounded context, stream progressively, and can become
+  spoken audio through ElevenLabs TTS.
 
 ## What this app does
 
@@ -16,6 +42,19 @@ agent-to-agent debate flow using ElevenLabs agents and TTS.
 - Serves stored debate data and per-turn audio via API.
 - Uses selected article context to ground the generated debate.
 - Captures ElevenLabs response metadata (request IDs, character usage when returned by headers).
+
+## Judge-Friendly Demo Path
+
+1. Start Flask with `venv/bin/python -m flask --app app:create_app run`.
+2. Open `http://127.0.0.1:5000/`.
+3. Pick one headline from the news feed.
+4. Generate a short 4-turn debate.
+5. Watch the turns stream in order while the podcast-style UI stays responsive.
+6. If audio is enabled, play the generated turns; if audio fails, the transcript
+   still completes with friendly warnings.
+
+The point of the demo is that one morning headline quickly becomes a little
+live show.
 
 ## Setup
 
@@ -49,7 +88,7 @@ cp .env.example .env
   generation.
 - `services/news_feed.py` contains the external headline provider.
 - `frontend/` contains the React/Vite source app.
-- `frontend/src/lib/mockData.ts` contains speaker metadata and mock debate turns for local mock mode.
+- `frontend/src/lib/debateData.ts` contains speaker metadata and shared UI types.
 - `frontend/src/lib/api.ts` contains the browser API/SSE integration.
 - `static/frontend/` contains generated Vite build assets served by Flask.
 - `tests/` contains backend pytest coverage.

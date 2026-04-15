@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Search, Mic } from "lucide-react";
-import { type NewsHeadline } from "@/lib/mockData";
+import { type NewsHeadline } from "@/lib/debateData";
 import { fetchHeadlines } from "@/lib/api";
 import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";

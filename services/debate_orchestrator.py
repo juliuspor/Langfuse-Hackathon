@@ -22,6 +22,11 @@ class SpeakerProfile:
 
 
 class DebateOrchestrator:
+    """
+    Agentic core: alternate personas, carry context, stream turns,
+    and keep audio optional.
+    """
+
     def __init__(
         self,
         *,

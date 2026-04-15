@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULT_TURNS, startLiveDebate } from "@/lib/api";
-import { SPEAKERS, type DebateTurn, type NewsHeadline } from "@/lib/mockData";
+import { SPEAKERS, type DebateTurn, type NewsHeadline } from "@/lib/debateData";
 import WaveformAnimation from "./WaveformAnimation";
 import { cn } from "@/lib/utils";
 
@@ -215,7 +215,7 @@ export default function LivePodcast({ headline, onBack }: LivePodcastProps) {
         className="hidden"
       />
 
-      {/* Top bar — minimal like Spotify */}
+      {/* Clean podcast-player top bar */}
       <div className="flex items-center justify-between px-4 pt-4 pb-2">
         <button
           onClick={onBack}

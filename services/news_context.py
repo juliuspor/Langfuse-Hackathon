@@ -36,17 +36,17 @@ class NewsContextService:
                 "die politisch und gesellschaftlich umstritten ist. "
                 "Belastbare Details sind noch unvollstaendig, daher sollten Aussagen mit Vorsicht getroffen werden."
             )
-            headline = f"Mock-Briefing zu {topic_clean}"
+            headline = f"Briefing zu {topic_clean}"
         else:
             context = (
                 f"Current topic: {topic_clean}. "
                 "Recent coverage suggests an ongoing development with political and social relevance. "
                 "Verified details are still incomplete, so claims should be phrased with care."
             )
-            headline = f"Mock briefing on {topic_clean}"
+            headline = f"Briefing on {topic_clean}"
 
         return {
-            "source": "mock",
+            "source": "topic",
             "headline": headline,
             "context": context,
         }
