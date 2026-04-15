@@ -11,6 +11,8 @@ choose one headline, start the live debate, and watch the two personas take
 turns while audio plays when available. The app expects the Flask backend to
 provide headlines, stream text turns, stream a real Fakten-Schiri verdict after
 each turn when enabled, and send per-turn audio updates when MP3s are ready.
+The frontend should assume the backend is generating real turns through the live
+conversation stack, not through mocked transcript filler.
 
 ## Commands
 
@@ -42,3 +44,11 @@ The shipped demo should also avoid mocked runtime content entirely: live
 headlines, live debate turns, live referee verdicts, and live audio when
 enabled. If a provider fails, surface the failure honestly instead of swapping
 in canned transcript text.
+
+## Frontend best practices
+
+- Keep the main path focused on listening, not configuration.
+- Append `turn` updates immediately and merge later `audio` updates into the
+  same turn.
+- Reflect backend warnings and failures honestly.
+- Do not let loading states block the transcript once the first turn exists.

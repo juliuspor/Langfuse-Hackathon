@@ -31,6 +31,19 @@ The result is not a summary card and not a chatbot answer. It is a tiny morning
 show: a headline, a bit of tension, two voices taking each other seriously, and
 just enough theatrical friction to make the topic stick.
 
+## Live Runtime Notes
+
+- Debate text is generated through real ElevenLabs agent conversations over the
+  conversation WebSocket path.
+- Each turn is guided with explicit speaker-role instructions so Lanz and
+  Precht do not blur into one generic talky machine.
+- The browser receives transcript turns first, referee verdicts second, and
+  per-turn audio URLs once TTS finishes.
+- Voice IDs are read from the configured ElevenLabs agents unless local voice
+  overrides are set in `.env`.
+- The app does not swap in canned transcript text for production requests. If
+  a provider fails, the API should surface that failure honestly.
+
 ## What this app does
 
 - Starts a debate for a topic with strict turn alternation (`agent_1` -> `agent_2` -> ...).
@@ -62,6 +75,45 @@ just enough theatrical friction to make the topic stick.
 The point of the demo is that one morning headline quickly becomes a little
 live show, with just enough tension to wake you up without requiring you to
 argue with your toaster.
+
+## Best Practices
+
+### Product best practices
+
+- Keep the first-run path simple: headline -> start debate -> hear the voices.
+- Prefer short, punchy turns over essay-length monologues.
+- Treat the live feeling as part of the product, not a cosmetic extra.
+- Let failures stay visible and understandable instead of hiding them behind
+  fake success states.
+
+### Backend best practices
+
+- Keep Flask routes thin; put debate behavior in `services/`.
+- Preserve strict speaker alternation and explicit role guidance for every
+  generated turn.
+- Treat ElevenLabs and other external APIs as unreliable at the transport layer:
+  retry lightly, time out cleanly, and return useful warnings or errors.
+- Keep provider secrets on the backend only.
+- Store only paths inside the configured audio directory and reject anything
+  outside that boundary when serving files.
+
+### Frontend best practices
+
+- Stream text before audio so the page never feels frozen.
+- Show real state from the backend instead of inventing mock transcript,
+  verdict, or audio states.
+- Keep the main experience feeling like a player, not a settings dashboard.
+- When audio for one turn arrives later, update that turn in place rather than
+  duplicating entries.
+
+### Testing and demo best practices
+
+- Run the focused backend tests first when touching orchestration or streaming.
+- Rebuild the frontend whenever the Flask-served UI should reflect local source
+  changes.
+- Test the main browser flow from `http://127.0.0.1:5000/`, not only the API.
+- For quick backend smoke checks, use the SSE endpoint directly before chasing
+  UI ghosts.
 
 ## Setup
 
@@ -309,6 +361,12 @@ If the debate runs but no referee cards appear, confirm `OPENAI_API_KEY` is set,
 `FACT_REFEREE_ENABLED=true`, and the backend can reach the OpenAI API. If the
 referee call fails, the debate still completes and reports a warning instead of
 rendering placeholder verdicts.
+
+If debate text generation fails, confirm the configured ElevenLabs agents still
+respond in the ElevenLabs dashboard, then verify the local backend can obtain a
+signed conversation URL and complete a text-only conversation turn. TTS working
+does not automatically prove agent conversation generation is healthy; the app
+uses both paths separately.
 
 ## Known limitations
 
