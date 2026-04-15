@@ -15,19 +15,15 @@ personas argue it out, and get a short live-style podcast briefing while the
 coffee is still brewing. It is useful, and it is also a funny little coping
 mechanism for wanting that podcast energy every morning.
 
-## Hackathon Judging North Star
+## The Morning Format
 
-This project is intentionally small and demoable, but it is a working
-end-to-end application. It is built to be judged on three things:
+Most news apps ask you to scroll before your brain has even booted. This one
+does the opposite: it picks up one current headline and turns it into a compact,
+live-feeling exchange between two familiar German debate personas.
 
-- Actually works: Flask serves the React app, fetches headlines, streams debate
-  turns over SSE, persists transcripts, and optionally serves generated MP3
-  audio per turn.
-- Fun: the experience feels like a live morning podcast, not a static news
-  summary or chatbot answer.
-- Agentic / innovative: two AI personas take turns, react to each other's last
-  point, share article-grounded context, stream progressively, and can become
-  spoken audio through ElevenLabs TTS.
+The result is not a summary card and not a chatbot answer. It is a tiny morning
+show: a headline, a bit of tension, two voices taking each other seriously, and
+just enough theatrical friction to make the topic stick.
 
 ## What this app does
 
@@ -43,7 +39,7 @@ end-to-end application. It is built to be judged on three things:
 - Uses selected article context to ground the generated debate.
 - Captures ElevenLabs response metadata (request IDs, character usage when returned by headers).
 
-## Judge-Friendly Demo Path
+## Demo Flow
 
 1. Start Flask with `venv/bin/python -m flask --app app:create_app run`.
 2. Open `http://127.0.0.1:5000/`.
