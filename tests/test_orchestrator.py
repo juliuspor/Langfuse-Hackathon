@@ -51,6 +51,50 @@ def test_generated_text_is_returned_without_post_processing(
     assert result["turns"][1]["referee"]["verdict"] == "yellow"
 
 
+def test_guidance_message_sets_distinct_speaker_roles(
+    orchestrator, fake_elevenlabs_client
+) -> None:
+    fake_elevenlabs_client.turn_texts = [
+        "Erster Punkt mit deutlich mehr als einem Satz, damit die Uebergabe an den zweiten Turn Substanz hat.",
+        "Antwort vom zweiten Agenten.",
+    ]
+
+    orchestrator.start_debate(
+        topic="Tempolimit",
+        turns=2,
+        language="de",
+        include_audio=False,
+        request_id="req-guidance",
+    )
+
+    first_guidance = fake_elevenlabs_client.simulate_requests[0]["partial_history"][-1][
+        "message"
+    ]
+    second_guidance = fake_elevenlabs_client.simulate_requests[1]["partial_history"][-1][
+        "message"
+    ]
+
+    assert "Du sprichst jetzt als Markus Lanz" in first_guidance
+    assert "journalistisch, konkret und leicht skeptisch" in first_guidance
+    assert "Erueffne die Debatte mit einer klaren ersten These" in first_guidance
+
+    assert "Du sprichst jetzt als Richard David Precht" in second_guidance
+    assert "philosophisch und zugespitzt" in second_guidance
+    assert "zitiere den letzten Beitrag nicht woertlich aus" in second_guidance
+    assert "Reagiere direkt auf den Kern des letzten Punkts von Markus Lanz" in (
+        second_guidance
+    )
+
+
+def test_compress_latest_turn_uses_core_claim_without_full_quote() -> None:
+    compressed = DebateOrchestrator._compress_latest_turn(
+        "Erster Satz mit Kernthese. Zweiter Satz mit Ausschmueckung und viel "
+        "mehr Text, der in der naechsten Anleitung nicht komplett landen soll."
+    )
+
+    assert compressed == "Erster Satz mit Kernthese."
+
+
 def test_transcript_persistence(orchestrator, storage) -> None:
     result = orchestrator.start_debate(
         topic="Digitalisierung",

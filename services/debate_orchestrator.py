@@ -130,6 +130,7 @@ class DebateOrchestrator:
                     topic=topic,
                     news_context=news_context["context"],
                     transcript=transcript,
+                    speaker=speaker,
                     language=language,
                     is_final_turn=turn_index == turns,
                 )
@@ -449,31 +450,94 @@ class DebateOrchestrator:
         topic: str,
         news_context: str,
         transcript: list[dict[str, str]],
+        speaker: str,
         language: str,
         is_final_turn: bool,
     ) -> str:
+        speaker_name = "Markus Lanz" if speaker == "agent_1" else "Richard David Precht"
+        counterpart_name = (
+            "Richard David Precht" if speaker == "agent_1" else "Markus Lanz"
+        )
+        persona_instruction = (
+            "Sprich pointiert, journalistisch, konkret und leicht skeptisch. "
+            "Kurze, druckvolle Saetze. Keine philosophische Vorlesung."
+            if speaker == "agent_1"
+            else "Sprich gedanklich, philosophisch und zugespitzt, aber bleibe "
+            "konkret am Thema. Keine Moderationsfloskeln."
+        )
+        previous_claim = (
+            DebateOrchestrator._compress_latest_turn(transcript[-1]["text"])
+            if transcript
+            else None
+        )
+
         if language.lower().startswith("de"):
             opening = (
+                f"Du sprichst jetzt als {speaker_name} im direkten Schlagabtausch mit {counterpart_name}. "
+                f"{persona_instruction} "
                 f"Thema: {topic}. Kontext: {news_context}. "
-                "Fuehre eine klare Debattenantwort in 2 bis 5 Saetzen aus, bleibe beim Thema und formuliere Unsicherheit vorsichtig."
+                "Antworte auf Deutsch in 2 bis 4 Saetzen. "
+                "Bleibe in deiner Rolle, nenne deinen eigenen Namen nicht, "
+                "wechsle nicht die Persona und zitiere den letzten Beitrag nicht woertlich aus."
             )
-            if transcript:
-                opening += f" Gehe direkt auf diese letzte Aussage ein: {transcript[-1]['text']}"
+            if previous_claim:
+                opening += (
+                    f" Reagiere direkt auf den Kern des letzten Punkts von {counterpart_name}: "
+                    f"{previous_claim}. Widersprich, praezisiere oder drehe den Gedanken weiter, "
+                    "statt ihn nachzuerzaehlen."
+                )
+            else:
+                opening += (
+                    f" Erueffne die Debatte mit einer klaren ersten These zu {topic} "
+                    "und setze sofort Spannung in die Sache."
+                )
             if is_final_turn:
-                opening += " Dies ist der letzte Turn. Nenne kurz den tiefsten Dissens und moegliche gemeinsame Basis."
+                opening += (
+                    " Dies ist der letzte Turn. Benenne zum Schluss den tiefsten Dissens "
+                    "und eine moegliche gemeinsame Basis."
+                )
             return opening
 
         opening = (
+            f"You are speaking as {speaker_name} in a direct exchange with {counterpart_name}. "
+            f"{persona_instruction} "
             f"Topic: {topic}. Context: {news_context}. "
-            "Give one clear debate response in 2 to 5 sentences, stay on topic, and phrase uncertainty carefully."
+            "Reply in 2 to 4 sentences, stay in character, do not switch persona, and do not quote the previous turn verbatim."
         )
-        if transcript:
+        if previous_claim:
             opening += (
-                f" Respond directly to this latest point: {transcript[-1]['text']}"
+                f" Respond directly to the core of {counterpart_name}'s latest point: "
+                f"{previous_claim}. Push back or refine it instead of repeating it."
             )
+        else:
+            opening += f" Open the debate with a clear first claim about {topic}."
         if is_final_turn:
-            opening += " This is the final turn. Briefly name the deepest disagreement and any shared ground."
+            opening += (
+                " This is the final turn. Briefly name the deepest disagreement "
+                "and any shared ground."
+            )
         return opening
+
+    @staticmethod
+    def _compress_latest_turn(turn_text: str) -> str:
+        cleaned = " ".join(turn_text.split()).strip().strip("'\"")
+        if not cleaned:
+            return ""
+
+        sentence_end = min(
+            (
+                index
+                for index, char in enumerate(cleaned)
+                if char in ".!?"
+            ),
+            default=-1,
+        )
+        if 0 < sentence_end <= 180:
+            cleaned = cleaned[: sentence_end + 1]
+        elif len(cleaned) > 180:
+            cleaned = cleaned[:177].rstrip() + "..."
+
+        return cleaned
 
     @staticmethod
     def _fallback_generation(
